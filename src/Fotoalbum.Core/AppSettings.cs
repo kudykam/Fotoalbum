@@ -13,6 +13,9 @@ public sealed class AppSettings
 
     /// <summary>Kolik posledních záloh databáze ponechat ve složce _fotoalbum/zaloha.</summary>
     public int BackupsToKeep { get; set; } = 10;
+
+    /// <summary>Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky (doplněk Fotoalbum Import).</summary>
+    public bool AutoImport { get; set; } = true;
 }
 
 /// <summary>Umístění dat aplikace mimo složku s fotkami.</summary>
@@ -32,6 +35,8 @@ public sealed class AppPaths
     public string SettingsFile => Path.Combine(DataDir, "settings.json");
     public string CatalogFile => Path.Combine(DataDir, "katalog.db");
     public string ThumbDir => Path.Combine(DataDir, "nahledy");
+    /// <summary>Evidence fotek už jednou zkopírovaných z karty (aby se smazané fotky nevracely).</summary>
+    public string ImportIndexFile => Path.Combine(DataDir, "import.db");
 }
 
 public sealed class SettingsStore

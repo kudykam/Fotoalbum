@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Fotoalbum.Core/Fotoalbum.Core.csproj" />
     <Project Path="src/Fotoalbum.Desktop/Fotoalbum.Desktop.csproj" />
+    <Project Path="src/Fotoalbum.Import/Fotoalbum.Import.csproj" />
     <Project Path="src/Fotoalbum.Server/Fotoalbum.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">

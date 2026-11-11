@@ -116,7 +116,7 @@ public static class ServerHost
 
         api.MapPost("/settings", (SettingsRequest r) =>
         {
-            s.Configure(r.PhotoRoot, r.ExifToolPath);
+            s.Configure(r.PhotoRoot, r.ExifToolPath, r.AutoImport);
             return Results.Json(s.GetState());
         });
 
@@ -166,7 +166,7 @@ public static class ServerHost
     }
 }
 
-public sealed record SettingsRequest(string? PhotoRoot, string? ExifToolPath);
+public sealed record SettingsRequest(string? PhotoRoot, string? ExifToolPath, bool? AutoImport);
 public sealed record FolderKindRequest(string Path, string? Kind);
 public sealed record CaptionRequest(string Path, string? Caption, bool IsDraft);
 public sealed record FlagsRequest(string Path, bool? Skip, bool? MarkedDelete, int? Rotation, bool? Everyday, bool ClearEveryday);

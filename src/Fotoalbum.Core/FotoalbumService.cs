@@ -1,7 +1,7 @@
 namespace Fotoalbum.Core;
 
 public sealed record StateDto(bool Configured, string? Root, string? RootName, bool ExifToolOk, string? ExifToolVersion,
-    string? LastFolder, int PendingWrites, string? Problem);
+    string? LastFolder, int PendingWrites, string? Problem, bool AutoImport);
 
 public sealed record FolderDto(string Path, string Name, string Kind, bool KindInherited, int Total, int Handled, int Done,
     List<FolderDto> Children);
@@ -68,11 +68,13 @@ public sealed class FotoalbumService : IDisposable
     {
         var lib = _library;
         return new StateDto(lib is not null, lib?.Root, lib is null ? null : Path.GetFileName(lib.Root.TrimEnd(Path.DirectorySeparatorChar)),
-            _exif is not null, _exif?.TryVersion(), Db.GetState("last_folder"), Writer.PendingCount + Db.GetPendingWrites().Count, _problem);
+            _exif is not null, _exif?.TryVersion(), Db.GetState("last_folder"), Writer.PendingCount + Db.GetPendingWrites().Count, _problem,
+            _settings.Current.AutoImport);
     }
 
-    public void Configure(string? photoRoot, string? exifToolPath)
+    public void Configure(string? photoRoot, string? exifToolPath, bool? autoImport = null)
     {
+        if (autoImport is { } ai) _settings.Update(s => s.AutoImport = ai);
         if (photoRoot is not null)
         {
             var full = Path.GetFullPath(photoRoot.Trim().Trim('"'));

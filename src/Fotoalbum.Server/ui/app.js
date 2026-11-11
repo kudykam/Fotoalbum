@@ -84,6 +84,7 @@ function showSetup(first) {
     <div class="note ${st.exifToolOk ? "ok" : "bad"}">${st.exifToolOk
       ? `Zápis popisků do fotek je připravený (ExifTool ${esc(st.exifToolVersion || "")}).`
       : "Chybí program ExifTool, bez něj se popisky nezapíší do fotek (ukládají se jen v aplikaci). Umístěte <b>exiftool.exe</b> do složky <b>exiftool</b> vedle aplikace."}</div>
+    <label class="toggle" style="font-weight:400"><input type="checkbox" id="autoImp" ${st.autoImport ? "checked" : ""}> Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky (do složek „rok + roční období“, např. „2026 léto“)</label>
     ${first ? "" : `<p style="font-size:15px">Data aplikace (databáze, náhledy) jsou v profilu uživatele. Záloha databáze se ukládá do složky <b>_fotoalbum\\zaloha</b> ve složce s fotkami.</p>`}
   </div>`;
   if (S.canPick) $("pick").onclick = async () => {
@@ -91,7 +92,7 @@ function showSetup(first) {
   };
   $("saveRoot").onclick = async () => {
     try {
-      S.state = await api("POST", "/api/settings", { photoRoot: $("rootIn").value });
+      S.state = await api("POST", "/api/settings", { photoRoot: $("rootIn").value, autoImport: $("autoImp").checked });
       S.tree = null; S.folder = null; S.cur = null; S.photos = [];
       el.hidden = true; await boot();
     } catch (e) { fail(e); }

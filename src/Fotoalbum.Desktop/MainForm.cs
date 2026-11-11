@@ -36,6 +36,7 @@ internal sealed class MainForm : Form
                 PickFolder = PickFolderAsync,
             });
             _server.QuitRequested += () => BeginInvoke(() => { _allowClose = true; Close(); });
+            StartImportHelper();
 
             var dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Fotoalbum", "WebView2");
             var env = await CoreWebView2Environment.CreateAsync(userDataFolder: dataDir);
@@ -93,6 +94,18 @@ internal sealed class MainForm : Form
     {
         base.OnFormClosed(e);
         _server?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
+
+    /// <summary>Spustí doplněk pro kopírování z karty (běží dál na pozadí i po zavření Fotoalba).</summary>
+    private static void StartImportHelper()
+    {
+        try
+        {
+            var exe = Path.Combine(AppContext.BaseDirectory, "FotoalbumImport.exe");
+            if (!File.Exists(exe) || System.Diagnostics.Process.GetProcessesByName("FotoalbumImport").Length > 0) return;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = false });
+        }
+        catch (Exception ex) { ErrorLog.Write(ex); }
     }
 
     private Task<string?> PickFolderAsync() =>

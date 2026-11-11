@@ -91,6 +91,18 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 - **Pokračování:** aplikace si pro každou složku pamatuje poslední fotku a globálně poslední složku. Po otevření složky se pokračuje na posledním místě (první fotka jen u nové složky). Poslední místo je součástí sdílených dat, takže jde pokračovat i na jiném zařízení.
 - Čtecí režim ve výchozím stavu ukazuje jen fotky s popiskem.
 
+### 2.6 Kopírování fotek z karty (doplněk „Fotoalbum Import“)
+Samostatný malý program, který běží na pozadí (ikona u hodin, spouští se s Windows) – funguje i když Fotoalbum není otevřené.
+
+- **Poznání karty:** disk, který má v kořeni složku `DCIM` a v ní podsložky podle standardu DCF (3 číslice + 5 znaků), např. **`100_PANA`, `101_PANA`** (Panasonic), `100CANON`, `100NIKON`, `100MSDCF` (Sony). Běžný USB disk bez této struktury se ignoruje.
+- **Spuštění:** automaticky po zasunutí karty (zpráva Windows o novém disku), při startu počítače se zkontrolují už zasunuté karty; ručně z menu ikony.
+- **Co se kopíruje:** fotky JPG, které ještě nejsou v počítači. Duplicita se pozná podle **názvu souboru + data a času pořízení** (EXIF) – funguje i u fotek, ke kterým už byl doplněn popisek. Fotky jednou zkopírované se podruhé nekopírují, ani když je uživatel v PC smazal (evidence `import.db`).
+- **Kam:** do složky s fotkami, podsložka **„rok období“** podle data pořízení: jaro (3–5), léto (6–8), podzim (9–11), zima (12–2); např. „2026 léto“. Zima patří do kalendářního roku pořízení (prosinec 2026 → „2026 zima“, leden 2027 → „2027 zima“).
+- **Karta se nemění** – fotky se kopírují, nic se z ní nemaže. Kopie se ověří (velikost), zachová se datum souboru. Jiná fotka se stejným názvem dostane název `P1000001 (2).JPG`.
+- **Bez interakce:** malé okno vpravo dole ukazuje průběh („45 z 312 · P1000045.JPG do složky „2026 léto““), tlačítko Zastavit. Po dokončení „Hotovo – zkopírováno N fotek … Kartu můžete vyjmout.“, okno se samo zavře po 30 s; při chybě zůstane otevřené.
+- Zapnutí/vypnutí v nastavení Fotoalba (Ctrl+Alt+S); záznam o kopírování v `%LOCALAPPDATA%\Fotoalbum\import.log`.
+- Zatím **ne**: videa a RAW, fotoaparát připojený kabelem v režimu MTP (bez písmene disku) – viz otevřené otázky.
+
 ## 3. Diktování a AI
 
 ### 3.1 Dvě vrstvy textu u každé fotky
@@ -218,5 +230,6 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 2. Výběr konkrétní služby pro přepis řeči a pro inpainting (po testu na ukázkách).
 3. Synology Drive u dědy: typ úlohy (synchronizace / zálohování) a zapnuté verzování na NAS.
 4. Model Android tabletu (velikost displeje, verze Androidu) – kvůli rozložení rozhraní a mikrofonu.
+5. Kopírování z karty: kopírovat i videa (MP4/MOV) a RAW? Připojuje se fotoaparát kabelem (MTP), nebo se karta dává do čtečky? Má se zima dělit přes přelom roku jinak?
 
 **Vyřešeno:** tablet = Android; PC připojené kabelem (Wake-on-LAN); TV má Screen Mirroring i AllShare.
