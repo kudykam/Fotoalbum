@@ -1,0 +1,32 @@
+# --- Tajné údaje: NIKDY do repozitáře ---
+.env
+.env.*
+*.local.json
+appsettings.*.json
+!appsettings.example.json
+secrets*
+*.key
+*.pem
+*.pfx
+*.p12
+*.snk
+api-keys*
+
+# --- Fotografie a uživatelská data ---
+*.jpg
+*.jpeg
+*.JPG
+*.JPEG
+*.db
+*.sqlite
+!tests/fixtures/**
+
+# --- .NET / Visual Studio ---
+bin/
+obj/
+.vs/
+*.user
+*.suo
+packages/
+TestResults/
+AppPackages/
