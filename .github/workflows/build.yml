@@ -48,8 +48,16 @@ jobs:
       - name: Přibalit ExifTool (aktuální verze z exiftool.org)
         shell: pwsh
         run: |
-          $v = (Invoke-WebRequest -UseBasicParsing -MaximumRetryCount 4 -RetryIntervalSec 15 https://exiftool.org/ver.txt).Content.Trim()
-          Invoke-WebRequest -UseBasicParsing -MaximumRetryCount 4 -RetryIntervalSec 15 "https://exiftool.org/exiftool-${v}_64.zip" -OutFile exiftool.zip
+          # Název balíčku se zjistí přímo z hlavní stránky (mění se s verzí); záložně SourceForge.
+          $page = (Invoke-WebRequest -UseBasicParsing -MaximumRetryCount 4 -RetryIntervalSec 15 https://exiftool.org/).Content
+          $zip = [regex]::Match($page, 'exiftool-[0-9.]+_64\.zip').Value
+          if (-not $zip) { throw "Na exiftool.org nebyl nalezen balíček pro Windows." }
+          Write-Host "ExifTool: $zip"
+          try {
+            Invoke-WebRequest -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 15 "https://exiftool.org/$zip" -OutFile exiftool.zip
+          } catch {
+            Invoke-WebRequest -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 15 -UserAgent "Wget" "https://sourceforge.net/projects/exiftool/files/$zip/download" -OutFile exiftool.zip
+          }
           Expand-Archive exiftool.zip -DestinationPath exiftool-tmp
           $dir = Get-ChildItem exiftool-tmp -Directory | Select-Object -First 1
           New-Item -ItemType Directory -Force out/Fotoalbum/exiftool | Out-Null
