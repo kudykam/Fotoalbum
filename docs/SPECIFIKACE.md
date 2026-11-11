@@ -53,7 +53,7 @@ Cílový monitor: 21″, 1920×1080. **Schváleno: popisek a ovládání jsou VE
 ### 2.3.1 Promítání na televizi (plánováno)
 TV: **Samsung UE46F5400** (rok 2013, platforma před Tizenem). **Bez instalace aplikace do TV a bez převodu do MP4** – obraz se posílá živě z tabletu nebo PC po domácí Wi-Fi.
 
-- **Hlavní cesta – „Pustit na televizi“ přes DLNA:** TV funguje jako DLNA přehrávač (Samsung AllShare). Aplikace na tabletu / PC TV najde v síti a posílá jí jednotlivé „snímky“: fotka + popisek pěkným písmem, složené v rozlišení 1920×1080 (originály se nemění, snímek je dočasný). Děda listuje na tabletu, TV ukazuje. Volitelně automatické přehrávání.
+- **Hlavní cesta – „Pustit na televizi“ přes DLNA:** TV funguje jako DLNA přehrávač (Samsung AllShare). Snímky TV posílá **PC aplikace**; ovládat (listovat) jde z PC i z tabletu. PC TV najde v síti a posílá jí jednotlivé „snímky“: fotka + popisek pěkným písmem, složené v rozlišení 1920×1080 (originály se nemění, snímek je dočasný). Děda listuje na tabletu, TV ukazuje. Volitelně automatické přehrávání.
 - **Záložní cesta – zrcadlení obrazovky (Screen Mirroring / Miracast)** z tabletu s Androidem (u Samsung Galaxy Tab funkce Smart View). Na TV se zobrazí čtecí režim přesně jako na tabletu. iPad tuto TV zrcadlit neumí (AirPlay TV z roku 2013 nepodporuje).
 - Obě cesty vyžadují, aby tablet / PC a TV byly ve **stejné domácí Wi-Fi**. Nic se neposílá do cloudu.
 - **Ověřit na skutečné TV:** v menu Zdroj → „Screen Mirroring“ a v nastavení sítě „AllShare / Nastavení AllShare“ – podpora DLNA přehrávání. Jakmile bude k dispozici, otestovat prototypem.
@@ -150,50 +150,50 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 - Testovací fotky v repozitáři jen vlastní / bez osob, nikdy rodinné fotky.
 - Fotky se do cloudu posílají jen při akcích, které to vyžadují (čtení / odstranění textu); popisky a diktát se posílají jako text.
 
-## 9. Tablet a synchronizace (plánováno)
+## 9. PC jako centrum, tablet jako druhá obrazovka
 
-Verze pro **PC i tablet**, které **běží offline** (vše funguje bez sítě) a **synchronizují se**, jakmile je zařízení doma na Wi-Fi. Děda nesmí nic zapínat ani nastavovat – **žádný Tailscale ani VPN na jeho zařízeních**.
+**Výchozí situace u dědy:** PC, tablet a TV jsou ve **stejné domácí Wi-Fi**. Žádný server u dědy není (Orange Pi i NAS jsou u správce v jiném domě). Fotky jsou **na PC** a **Synology Drive Client** je průběžně zálohuje na NAS správce. Děda nic nezapíná ani nenastavuje – **žádný Tailscale ani VPN**.
 
-### Architektura (doporučeno)
+### Architektura (schváleno jako směr)
 ```
- PC (offline aplikace) ──┐   domácí Wi-Fi u dědy   ┌── Tablet (offline aplikace)
-                         └──►  Orange Pi – sync  ◄──┘
-                               server (vždy zapnutý)
-                                     │ Tailscale jen zde (správce: vzdálená správa)
+                    domácí Wi-Fi u dědy
+  Tablet  ───────────────►  PC: aplikace Fotoalbum  ───────────►  TV UE46F5400
+  (prohlížeč / aplikace)    • originály fotek + databáze          (DLNA snímky)
+                            • vestavěný server v síti
+                            • AI klíče, zápis metadat
+                                     │ Synology Drive Client (už existuje)
                                      ▼
-                              Synology NAS u správce – záloha
+                         NAS u správce: záloha fotek + záloha databáze
 ```
-- **Orange Pi u dědy** = synchronizační uzel, běží pořád, děda o něm neví. Drží databázi (popisky, diktáty, historie, stavy, poslední pozice), náhledy fotek a kopii originálů.
-- **PC a tablet** mají vlastní lokální databázi a pracují samostatně. Server najdou v domácí síti automaticky (mDNS / pevná adresa), synchronizace běží na pozadí. Bez sítě se změny frontují a odešlou později.
-- **Tailscale jen na Orange Pi** – pro správce (vzdálená správa, aktualizace) a pro noční **zálohu na Synology NAS** správce. Pro dědu neviditelné.
-- Mimo domov (chalupa, bez Wi-Fi) se pracuje offline a synchronizuje po návratu.
+- **PC je jediný zdroj pravdy.** Žádná obousměrná synchronizace databází → žádné konflikty.
+- **Tablet se připojuje k PC** v domácí síti a pracuje přímo s jeho daty (procházení, popisky, čtecí režim, promítání na TV). Podmínka: **PC musí běžet** (aplikace může běžet minimalizovaná / v oznamovací oblasti a startovat s Windows).
+- Párování tabletu s PC jednou při instalaci (správce naskenuje QR kód z PC). Server poslouchá jen v domácí síti a přijímá jen spárovaná zařízení.
+- Volitelně: probuzení PC z tabletu (Wake-on-LAN) – funguje spolehlivě jen u PC připojeného kabelem; ověřit.
+- Tablet bez PC: v první verzi nepodporováno. Případně později „vzít složku s sebou“ (offline kopie + odeslání změn po návratu).
 
-### Fotky na zařízeních
-- **Originály**: na PC (hlavní kopie) + záloha na Orange Pi → NAS.
-- **Tablet**: zmenšené kopie (např. 2560 px, ~0,5 MB) – stáhne si je ze serveru, celé roky fotek se vejdou. Volba „připravit složku offline“ a automaticky poslední otevřené složky.
-- Zápis popisku do metadat originálu provádí **PC aplikace** (a server do své kopie). Úpravy z tabletu se do JPG zapíší, jakmile se PC zesynchronizuje.
+### Záloha na NAS
+- Popisky jsou v metadatech JPG → Synology Drive je zálohuje automaticky spolu s fotkami.
+- Databáze aplikace (diktáty, historie, stavy, pozice) se **neukládá živá do synchronizované složky** (riziko zálohy rozepsaného souboru). Aplikace pravidelně a při zavření vytvoří **konzistentní zálohu** do `_fotoalbum/zaloha/` uvnitř zálohované složky (posledních N kopií).
+- Složka `_originaly` (originály před odstraněním vepsaného textu) se zálohuje také.
+- **Ověřit nastavení Synology Drive:** jde-li o obousměrnou synchronizaci, smazání fotky na PC smaže i kopii na NAS → zapnout verzování / koš na NAS, nebo použít režim jednosměrné zálohy.
 
-### Pravidla synchronizace
-- Každá změna nese čas a zařízení; synchronizují se jednotlivé změny, ne celý soubor databáze.
-- Konflikt (stejná fotka upravena na dvou zařízeních bez synchronizace): vyhraje novější, **starší verze zůstane v historii** a fotka dostane značku „zkontrolovat“. Nic se tiše neztratí.
-- Poslední pozice („Pokračovat…“) se synchronizuje, takže jde přejít z PC na tablet.
-
-### API klíče
-- AI volání jdou **přes server na Orange Pi** (klíče jen tam, ne na tabletu). Bez spojení se serverem: diktát se uloží a vylepšení proběhne po synchronizaci, případně přímé volání z PC s klíčem uloženým šifrovaně (rozhodne se v implementaci).
+### AI a klíče
+- Klíče jen na PC (šifrovaně, DPAPI). Tablet posílá požadavky přes PC → klíče nikdy na tabletu.
 
 ## 10. Technologie (návrh)
 
-- **Klienti PC + tablet:** jedna multiplatformní aplikace s lokální databází (SQLite). Kandidáti: **Flutter** nebo **.NET MAUI** (Windows + Android, případně iPad). Rozhodne se podle volby tabletu.
-- **Server na Orange Pi:** malá služba v Dockeru (Linux ARM64) – synchronizační API, SQLite/PostgreSQL, generování náhledů, ExifTool, proxy pro AI.
-- **TV:** DLNA odesílání snímků z aplikace (UPnP AV), záložně systémové zrcadlení.
-- Cloudové AI služby přes HTTPS.
+- **PC aplikace:** .NET 8 (Windows) s vestavěným webovým serverem (Kestrel) pro tablet; SQLite; ExifTool; DLNA (UPnP AV) odesílání na TV; spuštění s Windows, ikona v oznamovací oblasti.
+- **Uživatelské rozhraní:** jedno webové rozhraní (HTML – navazuje na maketu), na PC zobrazené v aplikaci (WebView2), na tabletu v prohlížeči jako „aplikace na ploše“ (PWA). Jeden vzhled, jedna údržba, funguje na Androidu i iPadu.
+- **Mikrofon na tabletu:** prohlížeč povolí mikrofon jen přes HTTPS → PC aplikace vytvoří vlastní certifikát, správce ho jednou nainstaluje do tabletu. Záložně diktování přes mikrofon klávesnice tabletu (Gboard / Samsung klávesnice umí česky).
+- Pokud by se ukázala potřeba (offline tablet, plynulost), lze později doplnit nativní aplikaci pro Android nad stejným API.
+- Cloudové AI služby přes HTTPS (volá je PC).
 
 ## 11. Otevřené otázky
 
 1. Ukázkové fotky (2–3) s vepsaným textem pro test čtení a odstranění – dodá uživatel soukromě, ne do repozitáře.
 2. Výběr konkrétní služby pro přepis řeči a pro inpainting (po testu na ukázkách).
 3. Vzhled čtecího režimu.
-4. Tablet: Android (doporučeno kvůli zrcadlení na TV), nebo iPad? Model / velikost?
-5. Orange Pi: přesný model, bude fyzicky u dědy? Má disk pro kopii fotek (kolik GB fotek celkem)?
-6. Fotky dnes leží na disku dědova PC?
+4. Tablet: Android, nebo iPad? (Kvůli zrcadlení na TV je výhodnější Android; s architekturou z kap. 9 funguje obojí.)
+5. Synology Drive u dědy: obousměrná synchronizace, nebo jednosměrná záloha? Je na NAS zapnuté verzování?
+6. Je PC připojené kabelem (kvůli probuzení z tabletu)? Nechává se běžet celý den?
 7. TV UE46F5400: ověřit v menu „Screen Mirroring“ a nastavení AllShare / DLNA.
