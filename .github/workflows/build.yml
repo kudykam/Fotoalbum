@@ -59,10 +59,11 @@ jobs:
             Invoke-WebRequest -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 15 -UserAgent "Wget" "https://sourceforge.net/projects/exiftool/files/$zip/download" -OutFile exiftool.zip
           }
           Expand-Archive exiftool.zip -DestinationPath exiftool-tmp
-          $dir = Get-ChildItem exiftool-tmp -Directory | Select-Object -First 1
+          $exe = Get-ChildItem exiftool-tmp -Recurse -Filter "exiftool*.exe" | Select-Object -First 1
+          if (-not $exe) { throw "V balíčku ExifToolu chybí exiftool.exe." }
           New-Item -ItemType Directory -Force out/Fotoalbum/exiftool | Out-Null
-          Copy-Item -Recurse "$($dir.FullName)/*" out/Fotoalbum/exiftool/
-          Rename-Item "out/Fotoalbum/exiftool/exiftool(-k).exe" exiftool.exe
+          Copy-Item -Recurse "$($exe.DirectoryName)/*" out/Fotoalbum/exiftool/
+          if ($exe.Name -ne "exiftool.exe") { Rename-Item "out/Fotoalbum/exiftool/$($exe.Name)" exiftool.exe }
           & out/Fotoalbum/exiftool/exiftool.exe -ver
       - uses: actions/upload-artifact@v5
         with:
