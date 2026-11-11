@@ -44,7 +44,7 @@ Cílový monitor: 21″, 1920×1080. **Schváleno: popisek a ovládání jsou VE
 - Miniatury mají značku stavu (viz 2.5).
 - Filtry: „jen nepopsané“, „skrýt běžné fotky“.
 - Otočení fotky ↻ (v menu ⋯).
-- Maketa: https://claude.ai/artifact/WzmcgPRpu6q2vw9fHcCVfy (soukromá, ukázková data).
+- Maketa (Knihovna, Pracovna, Čtení, náhled tabletu): https://claude.ai/artifact/WzmcgPRpu6q2vw9fHcCVfy (soukromý odkaz) a kopie v repozitáři `docs/maketa/fotoalbum-maketa.html` (otevřít v prohlížeči; ukázková data).
 
 ### 2.3 Čtecí režim
 - Celá obrazovka, vzhled listování albem (fotka + popisek), ovládání šipkami.
