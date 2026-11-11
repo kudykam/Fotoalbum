@@ -51,10 +51,10 @@ Cílový monitor: 21″, 1920×1080. **Schváleno: popisek a ovládání jsou VE
 - Konkrétní vzhled se ještě doladí. PDF / fotokniha zatím **mimo rozsah**.
 
 ### 2.3.1 Promítání na televizi (plánováno)
-TV: **Samsung UE46F5400** (rok 2013, platforma před Tizenem). **Bez instalace aplikace do TV a bez převodu do MP4** – obraz se posílá živě z tabletu nebo PC po domácí Wi-Fi.
+TV: **Samsung UE46F5400** (rok 2013, platforma před Tizenem). **Ověřeno: TV má „Screen Mirroring“ i AllShare (DLNA).** **Bez instalace aplikace do TV a bez převodu do MP4** – obraz se posílá živě z tabletu nebo PC po domácí Wi-Fi.
 
 - **Hlavní cesta – „Pustit na televizi“ přes DLNA:** TV funguje jako DLNA přehrávač (Samsung AllShare). Snímky TV posílá **PC aplikace**; ovládat (listovat) jde z PC i z tabletu. PC TV najde v síti a posílá jí jednotlivé „snímky“: fotka + popisek pěkným písmem, složené v rozlišení 1920×1080 (originály se nemění, snímek je dočasný). Děda listuje na tabletu, TV ukazuje. Volitelně automatické přehrávání.
-- **Záložní cesta – zrcadlení obrazovky (Screen Mirroring / Miracast)** z tabletu s Androidem (u Samsung Galaxy Tab funkce Smart View). Na TV se zobrazí čtecí režim přesně jako na tabletu. iPad tuto TV zrcadlit neumí (AirPlay TV z roku 2013 nepodporuje).
+- **Druhá rovnocenná cesta – zrcadlení obrazovky (Screen Mirroring / Miracast)** z tabletu s Androidem (tablet bude Android) (u Samsung Galaxy Tab funkce Smart View). Na TV se zobrazí čtecí režim přesně jako na tabletu. iPad tuto TV zrcadlit neumí (AirPlay TV z roku 2013 nepodporuje).
 - Obě cesty vyžadují, aby tablet / PC a TV byly ve **stejné domácí Wi-Fi**. Nic se neposílá do cloudu.
 - **Ověřit na skutečné TV:** v menu Zdroj → „Screen Mirroring“ a v nastavení sítě „AllShare / Nastavení AllShare“ – podpora DLNA přehrávání. Jakmile bude k dispozici, otestovat prototypem.
 
@@ -168,14 +168,16 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 - **PC je jediný zdroj pravdy.** Žádná obousměrná synchronizace databází → žádné konflikty.
 - **Tablet se připojuje k PC** v domácí síti a pracuje přímo s jeho daty (procházení, popisky, čtecí režim, promítání na TV). Podmínka: **PC musí běžet** (aplikace může běžet minimalizovaná / v oznamovací oblasti a startovat s Windows).
 - Párování tabletu s PC jednou při instalaci (správce naskenuje QR kód z PC). Server poslouchá jen v domácí síti a přijímá jen spárovaná zařízení.
-- Volitelně: probuzení PC z tabletu (Wake-on-LAN) – funguje spolehlivě jen u PC připojeného kabelem; ověřit.
+- **Probuzení PC z tabletu (Wake-on-LAN):** PC je připojené kabelem → když PC spí, tablet zobrazí „Počítač spí – Probudit“ a jedním stiskem ho probudí. Správce jednou zapne WoL v BIOSu a v ovladači síťové karty.
 - Tablet bez PC: v první verzi nepodporováno. Případně později „vzít složku s sebou“ (offline kopie + odeslání změn po návratu).
 
 ### Záloha na NAS
 - Popisky jsou v metadatech JPG → Synology Drive je zálohuje automaticky spolu s fotkami.
 - Databáze aplikace (diktáty, historie, stavy, pozice) se **neukládá živá do synchronizované složky** (riziko zálohy rozepsaného souboru). Aplikace pravidelně a při zavření vytvoří **konzistentní zálohu** do `_fotoalbum/zaloha/` uvnitř zálohované složky (posledních N kopií).
 - Složka `_originaly` (originály před odstraněním vepsaného textu) se zálohuje také.
-- **Ověřit nastavení Synology Drive:** jde-li o obousměrnou synchronizaci, smazání fotky na PC smaže i kopii na NAS → zapnout verzování / koš na NAS, nebo použít režim jednosměrné zálohy.
+- **Ověřit nastavení Synology Drive** (zatím neznámé): v Synology Drive Client na PC je u úlohy uveden typ **„Synchronizace“** (obousměrná) nebo **„Zálohování“** (jednosměrná).
+  - Při synchronizaci se smazání fotky na PC promítne i na NAS → na NAS zapnout **verzování** a **koš** (Synology Drive Admin Console → Týmová složka / Moje Drive → Verzování), případně přidat jednosměrnou zálohovací úlohu.
+  - Fotky „Ke smazání“ jdou z aplikace jen do koše Windows; obnova z NAS je druhá pojistka.
 
 ### AI a klíče
 - Klíče jen na PC (šifrovaně, DPAPI). Tablet posílá požadavky přes PC → klíče nikdy na tabletu.
@@ -193,7 +195,7 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 1. Ukázkové fotky (2–3) s vepsaným textem pro test čtení a odstranění – dodá uživatel soukromě, ne do repozitáře.
 2. Výběr konkrétní služby pro přepis řeči a pro inpainting (po testu na ukázkách).
 3. Vzhled čtecího režimu.
-4. Tablet: Android, nebo iPad? (Kvůli zrcadlení na TV je výhodnější Android; s architekturou z kap. 9 funguje obojí.)
-5. Synology Drive u dědy: obousměrná synchronizace, nebo jednosměrná záloha? Je na NAS zapnuté verzování?
-6. Je PC připojené kabelem (kvůli probuzení z tabletu)? Nechává se běžet celý den?
-7. TV UE46F5400: ověřit v menu „Screen Mirroring“ a nastavení AllShare / DLNA.
+4. Synology Drive u dědy: typ úlohy (synchronizace / zálohování) a zapnuté verzování na NAS.
+5. Model Android tabletu (velikost displeje, verze Androidu) – kvůli rozložení rozhraní a mikrofonu.
+
+**Vyřešeno:** tablet = Android; PC připojené kabelem (Wake-on-LAN); TV má Screen Mirroring i AllShare.
