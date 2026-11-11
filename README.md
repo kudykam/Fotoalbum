@@ -22,8 +22,9 @@ Hotovo:
 - pokračování tam, kde se minule skončilo,
 - záloha databáze do `_fotoalbum\zaloha` ve složce s fotkami (zálohuje ji Synology Drive).
 
-Doplněk **Fotoalbum Import** (`FotoalbumImport.exe`): běží na pozadí, po zasunutí karty z fotoaparátu
-(DCIM/100_PANA…) sám zkopíruje nové fotky do složek „rok období“ (např. „2026 léto“) a ukáže průběh. Karta se nemění.
+**Kopírování z karty** (součást aplikace): Fotoalbum běží na pozadí jako ikona u hodin a spouští se s Windows.
+Po zasunutí karty z fotoaparátu (DCIM/100_PANA…) samo zkopíruje nové fotky do složek „rok období“
+(např. „2026 léto“) a ukáže průběh. Karta se nemění. „Zavřít program“ zavře okno, úplné ukončení je v menu ikony.
 
 Další etapy (diktování, AI, knihovna alb, čtení, tablet, televize) – viz specifikace, kap. „Etapy“.
 
@@ -40,8 +41,7 @@ Další etapy (diktování, AI, knihovna alb, čtení, tablet, televize) – viz
 ```
 src/Fotoalbum.Core      jádro: knihovna fotek, databáze (SQLite), ExifTool, náhledy (SkiaSharp)
 src/Fotoalbum.Server    lokální server + webové rozhraní (ui/), stejné rozhraní později pro tablet
-src/Fotoalbum.Desktop   aplikace pro Windows: okno s WebView2, koš Windows, výběr složky
-src/Fotoalbum.Import    doplněk: kopírování nových fotek z karty po připojení (ikona u hodin)
+src/Fotoalbum.Desktop   aplikace pro Windows: ikona u hodin, okno s WebView2, kopírování z karty, koš Windows
 tests/                  testy jádra (xUnit)
 ```
 
@@ -64,7 +64,6 @@ Aplikace pro Windows:
 
 ```powershell
 dotnet publish src/Fotoalbum.Desktop -c Release -r win-x64 --self-contained -o out/Fotoalbum
-dotnet publish src/Fotoalbum.Import  -c Release -r win-x64 --self-contained -o out/Fotoalbum
 ```
 
 ExifTool pro Windows (https://exiftool.org, „Windows Executable“) rozbalte do `out/Fotoalbum/exiftool/`

@@ -5,19 +5,22 @@ using Microsoft.Web.WebView2.WinForms;
 namespace Fotoalbum.Desktop;
 
 /// <summary>
-/// Okno aplikace: uvnitř běží lokální server a rozhraní se zobrazuje přes WebView2 (součást Windows 10/11).
+/// Okno Fotoalba: rozhraní z lokálního serveru zobrazené přes WebView2 (součást Windows 10/11).
 /// Zavření okna nejdřív předá rozhraní, aby ukázalo souhrn fotek ke smazání a vše uložilo.
+/// Server a hlídání karet běží dál (ikona u hodin).
 /// </summary>
 internal sealed class MainForm : Form
 {
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
-    private RunningServer? _server;
+    private readonly RunningServer _server;
     private bool _allowClose;
     private DateTime _closeAskedAt = DateTime.MinValue;
 
-    public MainForm()
+    public MainForm(RunningServer server)
     {
+        _server = server;
         Text = "Fotoalbum";
+        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         WindowState = FormWindowState.Maximized;
         MinimumSize = new Size(1000, 640);
         BackColor = Color.FromArgb(245, 247, 245);
@@ -29,15 +32,6 @@ internal sealed class MainForm : Form
         base.OnLoad(e);
         try
         {
-            _server = await ServerHost.StartAsync(new ServerOptions
-            {
-                HostKind = "pc",
-                RecycleBinFactory = _ => new WindowsRecycleBin(),
-                PickFolder = PickFolderAsync,
-            });
-            _server.QuitRequested += () => BeginInvoke(() => { _allowClose = true; Close(); });
-            StartImportHelper();
-
             var dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Fotoalbum", "WebView2");
             var env = await CoreWebView2Environment.CreateAsync(userDataFolder: dataDir);
             await _web.EnsureCoreWebView2Async(env);
@@ -46,7 +40,6 @@ internal sealed class MainForm : Form
             core.Settings.AreDevToolsEnabled = false;
 #endif
             core.Settings.IsStatusBarEnabled = false;
-            core.Settings.AreBrowserAcceleratorKeysEnabled = true;
             core.NewWindowRequested += (_, a) => a.Handled = true;
             core.NavigationStarting += (_, a) =>
             {
@@ -58,23 +51,35 @@ internal sealed class MainForm : Form
         {
             MessageBox.Show("Chybí součást Windows „Microsoft Edge WebView2“. Nainstalujte ji prosím ze stránek Microsoftu a spusťte Fotoalbum znovu.",
                 "Fotoalbum", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            _allowClose = true;
-            Close();
+            CloseConfirmed();
         }
         catch (Exception ex)
         {
-            ErrorLog.Write(ex);
-            MessageBox.Show("Fotoalbum se nepodařilo spustit: " + ex.Message, "Fotoalbum", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            _allowClose = true;
-            Close();
+            Log.Error(ex);
+            MessageBox.Show("Okno Fotoalba se nepodařilo otevřít: " + ex.Message, "Fotoalbum", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            CloseConfirmed();
         }
+    }
+
+    /// <summary>Rozhraní potvrdilo zavření (souhrn mazání vyřešen, vše uloženo).</summary>
+    public void CloseConfirmed()
+    {
+        _allowClose = true;
+        Close();
+    }
+
+    /// <summary>Po zkopírování fotek z karty obnoví strom složek, pokud je okno otevřené.</summary>
+    public void RefreshFolders()
+    {
+        if (_web.CoreWebView2 is not null)
+            _ = _web.CoreWebView2.ExecuteScriptAsync("window.fotoalbum && window.fotoalbum.refreshFolders && window.fotoalbum.refreshFolders()");
     }
 
     protected override async void OnFormClosing(FormClosingEventArgs e)
     {
-        if (_allowClose || _server is null || _web.CoreWebView2 is null || e.CloseReason == CloseReason.WindowsShutDown)
+        if (_allowClose || _web.CoreWebView2 is null || e.CloseReason == CloseReason.WindowsShutDown)
         {
-            if (!_allowClose) _server?.Service.Shutdown();
+            if (!_allowClose) _server.Service.Shutdown();
             base.OnFormClosing(e);
             return;
         }
@@ -89,34 +94,4 @@ internal sealed class MainForm : Form
         _closeAskedAt = DateTime.UtcNow;
         await _web.CoreWebView2.ExecuteScriptAsync("window.fotoalbum && window.fotoalbum.requestClose()");
     }
-
-    protected override void OnFormClosed(FormClosedEventArgs e)
-    {
-        base.OnFormClosed(e);
-        _server?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-    }
-
-    /// <summary>Spustí doplněk pro kopírování z karty (běží dál na pozadí i po zavření Fotoalba).</summary>
-    private static void StartImportHelper()
-    {
-        try
-        {
-            var exe = Path.Combine(AppContext.BaseDirectory, "FotoalbumImport.exe");
-            if (!File.Exists(exe) || System.Diagnostics.Process.GetProcessesByName("FotoalbumImport").Length > 0) return;
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = false });
-        }
-        catch (Exception ex) { ErrorLog.Write(ex); }
-    }
-
-    private Task<string?> PickFolderAsync() =>
-        Task.FromResult((string?)Invoke(() =>
-        {
-            using var dlg = new FolderBrowserDialog
-            {
-                Description = "Vyberte složku s fotkami",
-                UseDescriptionForTitle = true,
-                ShowNewFolderButton = false,
-            };
-            return dlg.ShowDialog(this) == DialogResult.OK ? dlg.SelectedPath : null;
-        }));
 }

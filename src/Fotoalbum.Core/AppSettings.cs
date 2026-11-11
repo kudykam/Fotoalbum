@@ -14,7 +14,7 @@ public sealed class AppSettings
     /// <summary>Kolik posledních záloh databáze ponechat ve složce _fotoalbum/zaloha.</summary>
     public int BackupsToKeep { get; set; } = 10;
 
-    /// <summary>Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky (doplněk Fotoalbum Import).</summary>
+    /// <summary>Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky (Fotoalbum běží na pozadí u hodin).</summary>
     public bool AutoImport { get; set; } = true;
 }
 

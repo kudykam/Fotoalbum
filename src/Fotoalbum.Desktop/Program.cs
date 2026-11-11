@@ -2,34 +2,44 @@ namespace Fotoalbum.Desktop;
 
 internal static class Program
 {
+    /// <summary>
+    /// Fotoalbum běží jako jeden program: lokální server, okno aplikace a hlídání karet z fotoaparátu.
+    /// <c>--pozadi</c> = spuštěno s Windows, okno se neotevře (jen ikona u hodin).
+    /// </summary>
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
-        using var single = new Mutex(true, "Fotoalbum-" + Environment.UserName, out var first);
+        var user = Environment.UserName;
+        using var single = new Mutex(true, "Fotoalbum-" + user, out var first);
+        using var showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, "Fotoalbum-Ukazat-" + user);
         if (!first)
         {
-            MessageBox.Show("Fotoalbum už je spuštěné.", "Fotoalbum", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Fotoalbum už běží (třeba jen u hodin) – požádat ho, ať otevře okno.
+            showSignal.Set();
             return;
         }
-        Application.ThreadException += (_, e) => ErrorLog.Write(e.Exception);
-        AppDomain.CurrentDomain.UnhandledException += (_, e) => ErrorLog.Write(e.ExceptionObject as Exception);
+        Application.ThreadException += (_, e) => Log.Error(e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Error(e.ExceptionObject as Exception);
         ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
+        Application.Run(new TrayContext(startHidden: args.Contains("--pozadi"), showSignal));
     }
 }
 
-internal static class ErrorLog
+internal static class Log
 {
-    public static string File => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Fotoalbum", "chyby.log");
+    private static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Fotoalbum");
+    public static string ErrorFile => Path.Combine(Dir, "chyby.log");
+    public static string ImportFile => Path.Combine(Dir, "import.log");
 
-    public static void Write(Exception? e)
+    public static void Error(Exception? e) { if (e is not null) Append(ErrorFile, e.ToString()); }
+    public static void Import(string text) => Append(ImportFile, text);
+
+    private static void Append(string file, string text)
     {
-        if (e is null) return;
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(File)!);
-            System.IO.File.AppendAllText(File, $"{DateTime.Now:O}\n{e}\n\n");
+            Directory.CreateDirectory(Dir);
+            File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {text}\n");
         }
         catch (IOException) { }
     }

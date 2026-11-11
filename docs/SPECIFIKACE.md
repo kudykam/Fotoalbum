@@ -91,8 +91,11 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 - **Pokračování:** aplikace si pro každou složku pamatuje poslední fotku a globálně poslední složku. Po otevření složky se pokračuje na posledním místě (první fotka jen u nové složky). Poslední místo je součástí sdílených dat, takže jde pokračovat i na jiném zařízení.
 - Čtecí režim ve výchozím stavu ukazuje jen fotky s popiskem.
 
-### 2.6 Kopírování fotek z karty (doplněk „Fotoalbum Import“)
-Samostatný malý program, který běží na pozadí (ikona u hodin, spouští se s Windows) – funguje i když Fotoalbum není otevřené.
+### 2.6 Kopírování fotek z karty (součást aplikace)
+**Není to samostatný program** – je to součást Fotoalba. Fotoalbum proto běží na pozadí jako ikona u hodin a spouští se s Windows (stejně to bude potřeba pro tablet):
+- „Zavřít program“ v okně zavře jen okno (předtím souhrn mazání a uložení); Fotoalbum dál hlídá kartu. Úplné ukončení: menu ikony → „Ukončit Fotoalbum“.
+- Nové spuštění Fotoalba (ikona na ploše), dvojklik na ikonu u hodin = otevře okno.
+- Menu ikony: Otevřít Fotoalbum, Zkopírovat fotky z karty, Spouštět s Windows, Ukončit.
 
 - **Poznání karty:** disk, který má v kořeni složku `DCIM` a v ní podsložky podle standardu DCF (3 číslice + 5 znaků), např. **`100_PANA`, `101_PANA`** (Panasonic), `100CANON`, `100NIKON`, `100MSDCF` (Sony). Běžný USB disk bez této struktury se ignoruje.
 - **Spuštění:** automaticky po zasunutí karty (zpráva Windows o novém disku), při startu počítače se zkontrolují už zasunuté karty; ručně z menu ikony.

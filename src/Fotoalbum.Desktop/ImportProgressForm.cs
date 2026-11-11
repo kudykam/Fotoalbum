@@ -1,12 +1,12 @@
 using Fotoalbum.Core.Import;
 
-namespace Fotoalbum.Import;
+namespace Fotoalbum.Desktop;
 
 /// <summary>
 /// Malé okno vpravo dole: průběh kopírování a výsledek. Nekrade focus, po úspěchu se samo zavře.
 /// Velké písmo a jednoduché texty pro staršího uživatele.
 /// </summary>
-internal sealed class ProgressForm : Form
+internal sealed class ImportProgressForm : Form
 {
     private static readonly Color Accent = Color.FromArgb(43, 104, 75);
     private static readonly Color Ink = Color.FromArgb(23, 32, 28);
@@ -25,7 +25,7 @@ internal sealed class ProgressForm : Form
 
     public event Action? StopRequested;
 
-    public ProgressForm(string drive, string library)
+    public ImportProgressForm(string drive, string library)
     {
         _drive = drive;
         _library = library;
@@ -54,7 +54,7 @@ internal sealed class ProgressForm : Form
 
         _stop.Click += (_, _) => { _stop.Enabled = false; _detail.Text = "Zastavuji…"; StopRequested?.Invoke(); };
         _close.Click += (_, _) => Close();
-        _open.Click += (_, _) => { ImportContext.OpenFolder(_lastFolder is null ? _library : Path.Combine(_library, _lastFolder)); Close(); };
+        _open.Click += (_, _) => { TrayContext.OpenFolder(_lastFolder is null ? _library : Path.Combine(_library, _lastFolder)); Close(); };
         _autoClose.Tick += (_, _) => Close();
     }
 

@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Fotoalbum.Import;
+namespace Fotoalbum.Desktop;
 
 /// <summary>Neviditelné okno, které od Windows dostává zprávu o připojení nového disku (karty).</summary>
 internal sealed class DeviceWatcher : NativeWindow, IDisposable
@@ -21,7 +21,7 @@ internal sealed class DeviceWatcher : NativeWindow, IDisposable
 
     public event Action<string>? DriveArrived;
 
-    public DeviceWatcher() => CreateHandle(new CreateParams { Caption = "Fotoalbum Import" });
+    public DeviceWatcher() => CreateHandle(new CreateParams { Caption = "Fotoalbum – hlídání karet" });
 
     protected override void WndProc(ref Message m)
     {

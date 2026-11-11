@@ -421,7 +421,11 @@ async function quit(moveToBin) {
     if (S.host !== "pc") modal(`<h3>Fotoalbum je zavřené</h3><p>Vše je uložené. Okno prohlížeče můžete zavřít.</p>`, () => {});
   } catch (e) { $("modalHost").innerHTML = ""; fail(e); }
 }
-window.fotoalbum = { requestClose };
+window.fotoalbum = {
+  requestClose,
+  // volá Windows aplikace po zkopírování fotek z karty – strom složek se obnoví
+  refreshFolders: () => { if (S.state && S.state.configured && !$("work").hidden) loadTree().then(() => toast("Z karty přibyly nové fotky – najdete je ve stromu složek.")).catch(() => {}); },
+};
 
 /* ---------- události ---------- */
 $("prev").onclick = $("pL").onclick = () => step(-1);
