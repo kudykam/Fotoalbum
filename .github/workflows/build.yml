@@ -14,12 +14,17 @@ jobs:
     name: Testy (Linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
       - name: ExifTool
-        run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
+        run: |
+          for i in 1 2 3 4; do
+            sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl && exit 0
+            echo "Pokus $i selhal, zkouším znovu…"; sleep 20
+          done
+          exit 1
       - run: dotnet build -c Release
       - run: dotnet test -c Release --no-build
 
@@ -28,8 +33,8 @@ jobs:
     runs-on: windows-latest
     needs: testy
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
       - name: Sestavení (samostatná aplikace, není potřeba instalovat .NET)
@@ -45,7 +50,7 @@ jobs:
           Copy-Item -Recurse "$($dir.FullName)/*" out/Fotoalbum/exiftool/
           Rename-Item "out/Fotoalbum/exiftool/exiftool(-k).exe" exiftool.exe
           & out/Fotoalbum/exiftool/exiftool.exe -ver
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: Fotoalbum-win-x64
           path: out/Fotoalbum
