@@ -51,13 +51,12 @@ Cílový monitor: 21″, 1920×1080. **Schváleno: popisek a ovládání jsou VE
 - Konkrétní vzhled se ještě doladí. PDF / fotokniha zatím **mimo rozsah**.
 
 ### 2.3.1 Promítání na televizi (plánováno)
-Cíl: pustit hotové album na **TV Samsung řady F** (pravděpodobně model z roku 2013, platforma před Tizenem – nové aplikace na ni nejdou instalovat, prohlížeč je zastaralý).
+TV: **Samsung UE46F5400** (rok 2013, platforma před Tizenem). **Bez instalace aplikace do TV a bez převodu do MP4** – obraz se posílá živě z tabletu nebo PC po domácí Wi-Fi.
 
-- **Hlavní cesta – export „Promítání“ do videa MP4** (H.264, 1080p): fotka + popisek pěkným písmem v dolní části, plynulé přechody, nastavitelná délka zobrazení podle délky popisku, volitelně hudba. Tuto podobu TV řady F spolehlivě přehraje.
-- Přehrání: z **Synology přes DLNA** (balíček Media Server; TV ho najde v seznamu zdrojů) nebo z **USB disku**. Děda pak ovládá jen dálkovým ovladačem.
-- Doplňková cesta: export kopií fotek s vepsaným popiskem (JPG, originály se nemění) pro prohlížeč fotek v TV.
-- Interaktivní listování (jako čtecí režim) jen přes externí zařízení na HDMI (notebook, případně levný TV stick) – volitelné.
-- Fotky ani popisky se kvůli TV neposílají do žádného cizího cloudu.
+- **Hlavní cesta – „Pustit na televizi“ přes DLNA:** TV funguje jako DLNA přehrávač (Samsung AllShare). Aplikace na tabletu / PC TV najde v síti a posílá jí jednotlivé „snímky“: fotka + popisek pěkným písmem, složené v rozlišení 1920×1080 (originály se nemění, snímek je dočasný). Děda listuje na tabletu, TV ukazuje. Volitelně automatické přehrávání.
+- **Záložní cesta – zrcadlení obrazovky (Screen Mirroring / Miracast)** z tabletu s Androidem (u Samsung Galaxy Tab funkce Smart View). Na TV se zobrazí čtecí režim přesně jako na tabletu. iPad tuto TV zrcadlit neumí (AirPlay TV z roku 2013 nepodporuje).
+- Obě cesty vyžadují, aby tablet / PC a TV byly ve **stejné domácí Wi-Fi**. Nic se neposílá do cloudu.
+- **Ověřit na skutečné TV:** v menu Zdroj → „Screen Mirroring“ a v nastavení sítě „AllShare / Nastavení AllShare“ – podpora DLNA přehrávání. Jakmile bude k dispozici, otestovat prototypem.
 
 ### 2.4 Nastavení (jen pro správce)
 - Kořenová složka s fotkami, AI služby a klíče, styl popisků, slovníček jmen a míst.
@@ -151,55 +150,50 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 - Testovací fotky v repozitáři jen vlastní / bez osob, nikdy rodinné fotky.
 - Fotky se do cloudu posílají jen při akcích, které to vyžadují (čtení / odstranění textu); popisky a diktát se posílají jako text.
 
-## 9. Tablet a sdílená data (plánováno)
+## 9. Tablet a synchronizace (plánováno)
 
-Uvažuje se o **verzi pro tablet** se **sdílenými daty** – děda může začít u počítače a pokračovat na tabletu (a naopak).
+Verze pro **PC i tablet**, které **běží offline** (vše funguje bez sítě) a **synchronizují se**, jakmile je zařízení doma na Wi-Fi. Děda nesmí nic zapínat ani nastavovat – **žádný Tailscale ani VPN na jeho zařízeních**.
 
-**Výchozí situace:** Synology NAS mimo domácí síť, dostupný přes **Tailscale**; alternativně Google účet.
+### Architektura (doporučeno)
+```
+ PC (offline aplikace) ──┐   domácí Wi-Fi u dědy   ┌── Tablet (offline aplikace)
+                         └──►  Orange Pi – sync  ◄──┘
+                               server (vždy zapnutý)
+                                     │ Tailscale jen zde (správce: vzdálená správa)
+                                     ▼
+                              Synology NAS u správce – záloha
+```
+- **Orange Pi u dědy** = synchronizační uzel, běží pořád, děda o něm neví. Drží databázi (popisky, diktáty, historie, stavy, poslední pozice), náhledy fotek a kopii originálů.
+- **PC a tablet** mají vlastní lokální databázi a pracují samostatně. Server najdou v domácí síti automaticky (mDNS / pevná adresa), synchronizace běží na pozadí. Bez sítě se změny frontují a odešlou později.
+- **Tailscale jen na Orange Pi** – pro správce (vzdálená správa, aktualizace) a pro noční **zálohu na Synology NAS** správce. Pro dědu neviditelné.
+- Mimo domov (chalupa, bez Wi-Fi) se pracuje offline a synchronizuje po návratu.
 
-### Varianty
+### Fotky na zařízeních
+- **Originály**: na PC (hlavní kopie) + záloha na Orange Pi → NAS.
+- **Tablet**: zmenšené kopie (např. 2560 px, ~0,5 MB) – stáhne si je ze serveru, celé roky fotek se vejdou. Volba „připravit složku offline“ a automaticky poslední otevřené složky.
+- Zápis popisku do metadat originálu provádí **PC aplikace** (a server do své kopie). Úpravy z tabletu se do JPG zapíší, jakmile se PC zesynchronizuje.
 
-**A) Synology + Tailscale jako centrum (doporučeno)**
-- Fotky leží na NAS. Na NAS běží malá služba „Fotoalbum server“ (Docker / Container Manager): databáze, náhledy, zápis metadat ExifToolem, volání AI.
-- Počítač i tablet se připojí přes Tailscale (síť je soukromá, nic se nevystavuje do internetu).
-- Výhody: jeden zdroj pravdy, žádné konflikty synchronizace, tablet nemusí mít fotky u sebe, **API klíče jsou jen na NAS** (ne na tabletu ani v počítači).
-- Nevýhody: bez připojení k NAS se nepracuje (lze doplnit offline mezipaměť pro rozpracovanou složku).
+### Pravidla synchronizace
+- Každá změna nese čas a zařízení; synchronizují se jednotlivé změny, ne celý soubor databáze.
+- Konflikt (stejná fotka upravena na dvou zařízeních bez synchronizace): vyhraje novější, **starší verze zůstane v historii** a fotka dostane značku „zkontrolovat“. Nic se tiše neztratí.
+- Poslední pozice („Pokračovat…“) se synchronizuje, takže jde přejít z PC na tablet.
 
-**B) Google Drive**
-- Fotky a data na Google Disku, aplikace je stahují přes API.
-- Nevýhody: databázový soubor SQLite se přes synchronizaci snadno poškodí / rozdvojí; 500 fotek na tablet je pomalé; Google Fotky neumožňují cizí aplikaci měnit popisky existujících fotek. **Nedoporučeno.**
+### API klíče
+- AI volání jdou **přes server na Orange Pi** (klíče jen tam, ne na tabletu). Bez spojení se serverem: diktát se uloží a vylepšení proběhne po synchronizaci, případně přímé volání z PC s klíčem uloženým šifrovaně (rozhodne se v implementaci).
 
-### Pravidla pro sdílená data (platí pro obě varianty)
-- Zdrojem pravdy pro popisek zůstává **metadata v JPG**; databáze drží navíc diktát, historii, stavy a pozice.
-- Současná práce na dvou zařízeních: zámek na úrovni fotky; když je fotka otevřená jinde, zobrazí se upozornění, nic se tiše nepřepíše.
-- Každá změna má čas a zařízení; historie verzí umožní návrat.
+## 10. Technologie (návrh)
 
-### Dopad na technologii – k rozhodnutí
-Pokud bude tablet, nevyplatí se psát čistě windowsovou aplikaci. Návrh: **webové rozhraní obsluhované serverem na NAS** (funguje v prohlížeči tabletu přes HTTPS z Tailscale; mikrofon v prohlížeči funguje), na Windows zabalené jako normální aplikace (WebView2). Jedno rozhraní pro obě zařízení, maketa je už v HTML.
-Alternativa: multiplatformní aplikace (.NET MAUI / Flutter) – víc práce, nativnější pocit.
-
-## 10. Technologie (návrh – čeká na rozhodnutí o tabletu)
-
-- Původní návrh pro samotný počítač: .NET 8, C#, WinUI 3, SQLite, ExifTool, instalátor s automatickými aktualizacemi.
-- Při variantě A z kap. 9: server (.NET nebo Node) v Dockeru na Synology, SQLite/PostgreSQL, ExifTool, webové rozhraní; Windows obal přes WebView2.
+- **Klienti PC + tablet:** jedna multiplatformní aplikace s lokální databází (SQLite). Kandidáti: **Flutter** nebo **.NET MAUI** (Windows + Android, případně iPad). Rozhodne se podle volby tabletu.
+- **Server na Orange Pi:** malá služba v Dockeru (Linux ARM64) – synchronizační API, SQLite/PostgreSQL, generování náhledů, ExifTool, proxy pro AI.
+- **TV:** DLNA odesílání snímků z aplikace (UPnP AV), záložně systémové zrcadlení.
 - Cloudové AI služby přes HTTPS.
-
-### Etapy
-1. **MVP**: strom složek, miniatury, velká fotka, ruční popisek, automatické ukládání do metadat, označení ke smazání.
-2. Diktování, ✨ Vylepšit, hlasové opravy, historie verzí, slovníček.
-3. Knihovna alb, úvodní texty, filtry běžných fotek.
-4. Staré vepsané popisky: přečtení a odstranění.
-5. Čtecí režim a export „Promítání“ do videa pro TV.
-6. Tablet a sdílená data (kap. 9) – pokud se zvolí architektura se serverem na NAS, je výhodné ji založit už v etapě 1.
 
 ## 11. Otevřené otázky
 
 1. Ukázkové fotky (2–3) s vepsaným textem pro test čtení a odstranění – dodá uživatel soukromě, ne do repozitáře.
 2. Výběr konkrétní služby pro přepis řeči a pro inpainting (po testu na ukázkách).
 3. Vzhled čtecího režimu.
-4. Tablet: iPad, nebo Android? Jaká velikost?
-5. Kde jsou fotky dnes – na disku počítače, nebo už na Synology? Kolik jich je celkem (GB)?
-6. Sdílená data: varianta A (Synology + Tailscale) – souhlas? Má NAS Container Manager (Docker)?
-7. Má jít pracovat i bez připojení k NAS (např. na chalupě bez internetu)?
-8. Přesný model TV (štítek vzadu, např. UE40F6400) – ověřit podporu DLNA/USB a formátu videa.
-9. Promítání: hudba ano/ne? Jak dlouho zobrazit jednu fotku?
+4. Tablet: Android (doporučeno kvůli zrcadlení na TV), nebo iPad? Model / velikost?
+5. Orange Pi: přesný model, bude fyzicky u dědy? Má disk pro kopii fotek (kolik GB fotek celkem)?
+6. Fotky dnes leží na disku dědova PC?
+7. TV UE46F5400: ověřit v menu „Screen Mirroring“ a nastavení AllShare / DLNA.
