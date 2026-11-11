@@ -93,12 +93,14 @@ Cílový monitor: 21″, 1920×1080. Rozložení:
 
 Část fotek (celé roky) má v obraze popisek přidaný dříve v editoru. **Vypálené datum se nemění**, řeší se jen popisek.
 
-1. AI starý text **přečte** a vloží ho jako výchozí podklad popisku.
-2. Text se z obrazu **odstraní** (oříznutím pruhu, nebo domalováním).
-3. Originál se vždy zálohuje, uživatel vidí náhled **před / po** a potvrdí.
-4. Hromadné zpracování po složkách.
+**Zjištěno:** text je **dole přímo v obraze** (ne na pruhu), většinou na stejném místě a stejným písmem. **Originály bez textu neexistují** → záloha je povinná a nesmí se nikdy mazat automaticky.
 
-Otevřené otázky – viz kapitola 10.
+1. AI starý text **přečte** a vloží ho jako výchozí podklad popisku (surový diktát).
+2. Text se z obrazu **odstraní domalováním** (inpainting) – jen v oblasti textu, zbytek obrazu se nemění.
+3. **Šablona oblasti:** protože je text většinou na stejném místě, správce jednou označí oblast pro složku / období a ta se použije hromadně; AI navíc ověří, že je text skutečně uvnitř. Fotky, kde text mimo šablonu přesahuje, se zařadí ke kontrole.
+4. Před úpravou se originál přesune do zálohy (`_originaly` vedle fotek nebo nastavená složka); upravená fotka zachová název souboru i všechna metadata.
+5. Uživatel vidí náhled **před / po**; hromadně: mřížka výsledků, nevyhovující se jedním klikem vrátí z originálu.
+6. Možnost kdykoli obnovit originál z aplikace.
 
 ## 8. Bezpečnost a soukromí
 
@@ -126,8 +128,6 @@ Otevřené otázky – viz kapitola 10.
 
 ## 10. Otevřené otázky
 
-1. Kde je starý vepsaný popisek – na přidaném pruhu, nebo přímo v obraze? Je vždy na stejném místě a stejným písmem?
-2. Existují někde originály bez vepsaného textu (záloha, starý disk)?
-3. Ukázkové fotky (2–3) pro test čtení a odstranění textu – předat soukromě, ne do repozitáře.
-4. Výběr konkrétní služby pro přepis řeči a pro inpainting (po testu).
-5. Vzhled čtecího režimu.
+1. Ukázkové fotky (2–3) s vepsaným textem pro test čtení a odstranění – dodá uživatel soukromě, ne do repozitáře.
+2. Výběr konkrétní služby pro přepis řeči a pro inpainting (po testu na ukázkách).
+3. Vzhled čtecího režimu.
