@@ -12,8 +12,9 @@ public class ImportTests
     [InlineData(2026, 9, 15, "2026 podzim")]
     [InlineData(2026, 11, 30, "2026 podzim")]
     [InlineData(2026, 12, 24, "2026 zima")]
-    [InlineData(2027, 1, 5, "2027 zima")]
-    [InlineData(2027, 2, 28, "2027 zima")]
+    [InlineData(2027, 1, 5, "2026 zima")]
+    [InlineData(2027, 2, 28, "2026 zima")]
+    [InlineData(2026, 2, 10, "2025 zima")]
     public void Slozka_podle_rocniho_obdobi(int y, int m, int d, string expected) =>
         Assert.Equal(expected, Seasons.FolderName(new DateTime(y, m, d)));
 
@@ -70,9 +71,9 @@ public class ImportTests
 
         Assert.Equal(3, result.Copied);
         Assert.Empty(result.Errors);
-        Assert.Equal(["2026 léto", "2026 zima", "2027 zima"], result.Folders);
+        Assert.Equal(["2026 léto", "2026 zima"], result.Folders);
         Assert.True(File.Exists(System.IO.Path.Combine(c.Library, "2026 léto", "P1000001.JPG")));
-        Assert.True(File.Exists(System.IO.Path.Combine(c.Library, "2027 zima", "P1010002.JPG")));
+        Assert.True(File.Exists(System.IO.Path.Combine(c.Library, "2026 zima", "P1010002.JPG")));
         Assert.True(File.Exists(System.IO.Path.Combine(c.Root, "DCIM", "100_PANA", "P1000001.JPG")));
         Assert.Equal(3, progress.Last().Done);
         Assert.Empty(Directory.GetFiles(c.Library, "*.kopiruje-se", SearchOption.AllDirectories));
@@ -128,6 +129,40 @@ public class ImportTests
 
         Assert.Equal(1, result.Copied);
         Assert.True(File.Exists(System.IO.Path.Combine(c.Library, "2026 léto", "P1000001 (2).JPG")));
+    }
+
+    [Fact]
+    public void Videa_se_kopiruji_vcetne_AVCHD_slozky_Panasonicu()
+    {
+        using var c = new Card();
+        Photo(System.IO.Path.Combine(c.Root, "DCIM", "100_PANA", "P1000001.JPG"), "2026:07:14 18:00:00");
+        var mp4 = System.IO.Path.Combine(c.Root, "DCIM", "100_PANA", "P1000002.MP4");
+        var mts = System.IO.Path.Combine(c.Root, "PRIVATE", "AVCHD", "BDMV", "STREAM", "00001.MTS");
+        foreach (var v in new[] { mp4, mts })
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(v)!);
+            File.WriteAllBytes(v, new byte[4096]);
+            // video bez čitelného data: použije se datum souboru
+            File.SetLastWriteTime(v, new DateTime(2027, 1, 3, 12, 0, 0));
+        }
+
+        var imp = c.Importer();
+        var result = imp.Execute(imp.Plan(c.Root));
+
+        Assert.Equal(3, result.Copied);
+        Assert.True(File.Exists(System.IO.Path.Combine(c.Library, "2026 zima", "P1000002.MP4")));
+        Assert.True(File.Exists(System.IO.Path.Combine(c.Library, "2026 zima", "00001.MTS")));
+        Assert.Empty(c.Importer().Plan(c.Root).Items);
+    }
+
+    [Fact]
+    public void Slozka_PRIVATE_bez_DCIM_se_nebere_jako_karta()
+    {
+        using var c = new Card();
+        var mts = System.IO.Path.Combine(c.Root, "PRIVATE", "AVCHD", "BDMV", "STREAM", "00001.MTS");
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(mts)!);
+        File.WriteAllBytes(mts, new byte[10]);
+        Assert.Empty(c.Importer().Plan(c.Root).Items);
     }
 
     /// <summary>IProgress bez synchronizačního kontextu (Progress&lt;T&gt; volá asynchronně).</summary>

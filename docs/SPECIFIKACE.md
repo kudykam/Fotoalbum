@@ -99,12 +99,12 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 
 - **Poznání karty:** disk, který má v kořeni složku `DCIM` a v ní podsložky podle standardu DCF (3 číslice + 5 znaků), např. **`100_PANA`, `101_PANA`** (Panasonic), `100CANON`, `100NIKON`, `100MSDCF` (Sony). Běžný USB disk bez této struktury se ignoruje.
 - **Spuštění:** automaticky po zasunutí karty (zpráva Windows o novém disku), při startu počítače se zkontrolují už zasunuté karty; ručně z menu ikony.
-- **Co se kopíruje:** fotky JPG, které ještě nejsou v počítači. Duplicita se pozná podle **názvu souboru + data a času pořízení** (EXIF) – funguje i u fotek, ke kterým už byl doplněn popisek. Fotky jednou zkopírované se podruhé nekopírují, ani když je uživatel v PC smazal (evidence `import.db`).
-- **Kam:** do složky s fotkami, podsložka **„rok období“** podle data pořízení: jaro (3–5), léto (6–8), podzim (9–11), zima (12–2); např. „2026 léto“. Zima patří do kalendářního roku pořízení (prosinec 2026 → „2026 zima“, leden 2027 → „2027 zima“).
+- **Co se kopíruje:** fotky JPG a **videa** (MP4, MOV, MTS/M2TS, AVI…), která ještě nejsou v počítači. Videa se hledají v `DCIM/…` a ve složkách `PRIVATE/AVCHD/BDMV/STREAM` (AVCHD, Panasonic/Sony) a `PRIVATE/M4ROOT/CLIP` (Sony) – jen na kartě, která má i DCIM. Ve Fotoalbu (Pracovna) se zatím zobrazují jen fotky. Duplicita se pozná podle **názvu souboru + data a času pořízení** (EXIF u fotek, datum vytvoření u videí; bez data podle velikosti) – funguje i u fotek, ke kterým už byl doplněn popisek. Fotky jednou zkopírované se podruhé nekopírují, ani když je uživatel v PC smazal (evidence `import.db`).
+- **Kam:** do složky s fotkami, podsložka **„rok období“** podle data pořízení: jaro (3–5), léto (6–8), podzim (9–11), zima (12–2); např. „2026 léto“. **Zima nese rok, ve kterém začala:** prosinec 2026, leden a únor 2027 → „2026 zima“ (fotky jdou za sebou podle času; složky „2026 jaro / léto / podzim / zima“ se tak i abecedně řadí chronologicky).
 - **Karta se nemění** – fotky se kopírují, nic se z ní nemaže. Kopie se ověří (velikost), zachová se datum souboru. Jiná fotka se stejným názvem dostane název `P1000001 (2).JPG`.
 - **Bez interakce:** malé okno vpravo dole ukazuje průběh („45 z 312 · P1000045.JPG do složky „2026 léto““), tlačítko Zastavit. Po dokončení „Hotovo – zkopírováno N fotek … Kartu můžete vyjmout.“, okno se samo zavře po 30 s; při chybě zůstane otevřené.
 - Zapnutí/vypnutí v nastavení Fotoalba (Ctrl+Alt+S); záznam o kopírování v `%LOCALAPPDATA%\Fotoalbum\import.log`.
-- Zatím **ne**: videa a RAW, fotoaparát připojený kabelem v režimu MTP (bez písmene disku) – viz otevřené otázky.
+- Karta se vkládá do **čtečky karet** (disk s písmenem). Fotoaparát připojený kabelem v režimu MTP se nepodporuje; RAW soubory se nekopírují.
 
 ## 3. Diktování a AI
 
@@ -233,6 +233,5 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 2. Výběr konkrétní služby pro přepis řeči a pro inpainting (po testu na ukázkách).
 3. Synology Drive u dědy: typ úlohy (synchronizace / zálohování) a zapnuté verzování na NAS.
 4. Model Android tabletu (velikost displeje, verze Androidu) – kvůli rozložení rozhraní a mikrofonu.
-5. Kopírování z karty: kopírovat i videa (MP4/MOV) a RAW? Připojuje se fotoaparát kabelem (MTP), nebo se karta dává do čtečky? Má se zima dělit přes přelom roku jinak?
 
 **Vyřešeno:** tablet = Android; PC připojené kabelem (Wake-on-LAN); TV má Screen Mirroring i AllShare.

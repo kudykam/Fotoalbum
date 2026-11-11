@@ -87,6 +87,35 @@ public sealed class ExifTool
         return result;
     }
 
+    /// <summary>
+    /// Datum a čas pořízení fotek i videí: DateTimeOriginal (fotky, AVCHD), jinak CreateDate (MP4/MOV,
+    /// převedeno z UTC na místní čas). Soubory bez data chybí ve výsledku.
+    /// </summary>
+    public Dictionary<string, DateTime> ReadTakenDates(IReadOnlyCollection<string> fullPaths)
+    {
+        var result = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        foreach (var chunk in fullPaths.Chunk(300))
+        {
+            var args = new List<string>
+            {
+                "-j", "-m", "-fast2", "-api", "QuickTimeUTC", "-charset", "filename=utf8",
+                "-d", "%Y-%m-%dT%H:%M:%S", "-DateTimeOriginal", "-CreateDate",
+            };
+            args.AddRange(chunk);
+            var (_, output, _) = Run(args, Timeout);
+            if (string.IsNullOrWhiteSpace(output)) continue;
+            using var doc = JsonDocument.Parse(output);
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                var file = Str(el, "SourceFile");
+                if (file is null) continue;
+                foreach (var tag in new[] { "DateTimeOriginal", "CreateDate" })
+                    if (DateTime.TryParse(Str(el, tag), out var d) && d.Year > 1980) { result[Path.GetFullPath(file)] = d; break; }
+            }
+        }
+        return result;
+    }
+
     /// <summary>Zapíše popisek do fotky (prázdný text popisky odstraní).</summary>
     public void WriteCaption(string fullPath, string caption)
     {

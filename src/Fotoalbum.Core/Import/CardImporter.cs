@@ -2,7 +2,11 @@ using Microsoft.Data.Sqlite;
 
 namespace Fotoalbum.Core.Import;
 
-/// <summary>Roční období podle měsíců (meteorologicky): jaro 3–5, léto 6–8, podzim 9–11, zima 12–2.</summary>
+/// <summary>
+/// Roční období podle měsíců (meteorologicky): jaro 3–5, léto 6–8, podzim 9–11, zima 12–2.
+/// Zima nese rok, ve kterém začala: prosinec 2026, leden a únor 2027 → „2026 zima“.
+/// Složky „2026 jaro, 2026 léto, 2026 podzim, 2026 zima“ se tak i abecedně řadí podle času.
+/// </summary>
 public static class Seasons
 {
     public static string Of(DateTime d) => d.Month switch
@@ -13,8 +17,18 @@ public static class Seasons
         _ => "zima",
     };
 
-    /// <summary>Název cílové složky, např. „2026 léto“. Zima se řadí do kalendářního roku pořízení fotky.</summary>
-    public static string FolderName(DateTime d) => $"{d.Year} {Of(d)}";
+    /// <summary>Název cílové složky, např. „2026 léto“; leden a únor patří k zimě předchozího roku.</summary>
+    public static string FolderName(DateTime d) => $"{(d.Month <= 2 ? d.Year - 1 : d.Year)} {Of(d)}";
+}
+
+/// <summary>Soubory, které se z karty kopírují: fotky JPG a videa.</summary>
+public static class MediaFiles
+{
+    private static readonly HashSet<string> VideoExt = new(StringComparer.OrdinalIgnoreCase)
+        { ".mp4", ".mov", ".mts", ".m2ts", ".avi", ".m4v", ".3gp" };
+
+    public static bool IsVideo(string path) => VideoExt.Contains(Path.GetExtension(path));
+    public static bool IsMedia(string path) => PhotoLibrary.IsPhotoFile(path) || IsVideo(path);
 }
 
 public sealed record ImportItem(string SourcePath, string TargetFolder, string TargetName, DateTime Taken, long Size, string Key);
@@ -62,6 +76,21 @@ public sealed class CardImporter
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
     }
 
+    /// <summary>
+    /// Složky s videi mimo DCIM: Panasonic, Sony aj. ukládají videa AVCHD do PRIVATE/AVCHD/BDMV/STREAM (*.MTS),
+    /// Sony XAVC do PRIVATE/M4ROOT/CLIP. Hledají se jen na kartě, která má i DCIM.
+    /// </summary>
+    public static List<string> FindVideoFolders(string driveRoot)
+    {
+        var list = new List<string>();
+        foreach (var rel in new[] { Path.Combine("PRIVATE", "AVCHD", "BDMV", "STREAM"), Path.Combine("PRIVATE", "M4ROOT", "CLIP") })
+        {
+            try { var d = Path.Combine(driveRoot, rel); if (Directory.Exists(d)) list.Add(d); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        return list;
+    }
+
     public static bool IsDcfFolderName(string name) =>
         name.Length == 8 && char.IsAsciiDigit(name[0]) && char.IsAsciiDigit(name[1]) && char.IsAsciiDigit(name[2])
         && name[0] != '0' && name[3..].All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
@@ -72,9 +101,10 @@ public sealed class CardImporter
 
     public ImportPlan Plan(string driveRoot, CancellationToken ct = default)
     {
-        var sources = FindCameraFolders(driveRoot)
+        var cameraFolders = FindCameraFolders(driveRoot);
+        var sources = cameraFolders.Concat(cameraFolders.Count > 0 ? FindVideoFolders(driveRoot) : [])
             .SelectMany(d => Directory.EnumerateFiles(d, "*", SearchOption.TopDirectoryOnly))
-            .Where(PhotoLibrary.IsPhotoFile)
+            .Where(MediaFiles.IsMedia)
             .Where(f => !Path.GetFileName(f).StartsWith('.')) // skryté soubory macOS (._IMG…)
             .Select(f => new FileInfo(f))
             .ToList();
@@ -167,7 +197,7 @@ public sealed class CardImporter
             IEnumerable<string> files, dirs;
             try { files = Directory.EnumerateFiles(dir).ToList(); dirs = Directory.EnumerateDirectories(dir).ToList(); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { continue; }
-            foreach (var f in files) if (PhotoLibrary.IsPhotoFile(f)) yield return new FileInfo(f);
+            foreach (var f in files) if (MediaFiles.IsMedia(f)) yield return new FileInfo(f);
             foreach (var d in dirs)
             {
                 var name = Path.GetFileName(d);
@@ -183,8 +213,8 @@ public sealed class CardImporter
         if (files.Count == 0) return result;
         if (_exif is not null)
         {
-            foreach (var m in _exif.Read(files))
-                result[m.Path] = DateTime.TryParse(m.DateTaken, out var d) ? d : null;
+            foreach (var (path, taken) in _exif.ReadTakenDates(files))
+                result[path] = taken;
         }
         foreach (var f in files) result.TryAdd(Path.GetFullPath(f), null);
         return result;

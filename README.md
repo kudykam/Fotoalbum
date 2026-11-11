@@ -23,8 +23,8 @@ Hotovo:
 - záloha databáze do `_fotoalbum\zaloha` ve složce s fotkami (zálohuje ji Synology Drive).
 
 **Kopírování z karty** (součást aplikace): Fotoalbum běží na pozadí jako ikona u hodin a spouští se s Windows.
-Po zasunutí karty z fotoaparátu (DCIM/100_PANA…) samo zkopíruje nové fotky do složek „rok období“
-(např. „2026 léto“) a ukáže průběh. Karta se nemění. „Zavřít program“ zavře okno, úplné ukončení je v menu ikony.
+Po zasunutí karty z fotoaparátu do čtečky (DCIM/100_PANA…) samo zkopíruje nové fotky a videa do složek „rok období“
+(např. „2026 léto“; „2026 zima“ = prosinec 2026 až únor 2027) a ukáže průběh. Karta se nemění. „Zavřít program“ zavře okno, úplné ukončení je v menu ikony.
 
 Další etapy (diktování, AI, knihovna alb, čtení, tablet, televize) – viz specifikace, kap. „Etapy“.
 

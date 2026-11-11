@@ -22,6 +22,7 @@ internal sealed class ImportProgressForm : Form
     private readonly string _library;
     private readonly System.Windows.Forms.Timer _autoClose = new();
     private string? _lastFolder;
+    private ImportPlan? _plan;
 
     public event Action? StopRequested;
 
@@ -68,10 +69,11 @@ internal sealed class ImportProgressForm : Form
 
     public void ShowPlan(ImportPlan plan)
     {
+        _plan = plan;
         if (plan.Items.Count == 0) return;
         _bar.Style = ProgressBarStyle.Continuous;
         _bar.Maximum = plan.Items.Count;
-        _title.Text = $"Kopíruji {Fotky(plan.Items.Count)} z karty";
+        _title.Text = $"Kopíruji z karty {Count(plan.Items)}";
     }
 
     public void ShowProgress(ImportProgress p)
@@ -94,7 +96,7 @@ internal sealed class ImportProgressForm : Form
         var folders = string.Join(", ", r.Folders.Select(f => $"„{f}“"));
         if (r.Errors.Count == 0)
         {
-            _title.Text = $"Hotovo – zkopírováno {Fotky(r.Copied)}";
+            _title.Text = $"Hotovo – zkopírováno {(_plan is null ? r.Copied.ToString() : Count(_plan.Items))}";
             _title.ForeColor = Accent;
             _detail.Text = $"Uloženo do {(r.Folders.Count == 1 ? "složky" : "složek")} {folders}." +
                 (r.AlreadyPresent > 0 ? $" Už dřív zkopírované přeskočeno: {r.AlreadyPresent}." : "") + "\nKartu můžete vyjmout.";
@@ -102,7 +104,7 @@ internal sealed class ImportProgressForm : Form
         }
         else
         {
-            _title.Text = $"Zkopírováno {Fotky(r.Copied)}, {r.Errors.Count} se nepodařilo";
+            _title.Text = $"Zkopírováno {r.Copied}, {r.Errors.Count} se nepodařilo";
             _title.ForeColor = Color.FromArgb(194, 42, 42);
             _detail.Text = "Zkuste kartu vyjmout a znovu zasunout. Podrobnosti jsou v souboru import.log.\n" + r.Errors[0];
         }
@@ -115,7 +117,7 @@ internal sealed class ImportProgressForm : Form
         _stop.Visible = false;
         _close.Visible = true;
         _title.Text = "Na kartě nejsou žádné nové fotky";
-        _detail.Text = alreadyPresent > 0 ? $"Všechny fotky z karty ({alreadyPresent}) už v počítači jsou." : "Na kartě nejsou žádné fotky JPG.";
+        _detail.Text = alreadyPresent > 0 ? $"Všechny fotky a videa z karty ({alreadyPresent}) už v počítači jsou." : "Na kartě nejsou žádné fotky ani videa.";
         CloseAfter(TimeSpan.FromSeconds(10));
     }
 
@@ -144,7 +146,15 @@ internal sealed class ImportProgressForm : Form
     }
 
     /// <summary>Česky skloňované „1 fotka / 2 fotky / 5 fotek“.</summary>
-    private static string Fotky(int n) => $"{n} {(n == 1 ? "fotku" : n is >= 2 and <= 4 ? "fotky" : "fotek")}";
+    /// <summary>„312 fotek a 12 videí“ – česky skloňované počty.</summary>
+    private static string Count(IReadOnlyCollection<ImportItem> items)
+    {
+        var videos = items.Count(i => MediaFiles.IsVideo(i.TargetName));
+        var photos = items.Count - videos;
+        var p = $"{photos} {(photos == 1 ? "fotku" : photos is >= 2 and <= 4 ? "fotky" : "fotek")}";
+        var v = $"{videos} {(videos == 1 ? "video" : videos is >= 2 and <= 4 ? "videa" : "videí")}";
+        return videos == 0 ? p : photos == 0 ? v : $"{p} a {v}";
+    }
 
     protected override void Dispose(bool disposing)
     {
