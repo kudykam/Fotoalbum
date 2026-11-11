@@ -15,28 +15,36 @@ Hlavní uživatel je senior → **velká písmena, velká tlačítka s ikonou i 
 - Album = složka ve stromu fotek.
 - Řazení podle **data** nebo **názvu**; vyhledávání v popiscích.
 - Album může mít **úvodní text** (diktuje se a vylepšuje stejně jako popisky).
+- Nahoře velké tlačítko **„Pokračovat: Afrika 1998 › Keňa, fotka 214 z 500“** – jedním stiskem otevře Pracovnu přesně tam, kde se minule skončilo (i když to bylo na jiném zařízení). Viz 2.5.
 
 ### 2.2 Pracovna (popisování)
-Cílový monitor: 21″, 1920×1080. Rozložení:
+Cílový monitor: 21″, 1920×1080. **Schváleno: popisek a ovládání jsou VEDLE fotky (vpravo)** – fotky 3:2 / 4:3 tak využijí výšku obrazovky a nevzniká prázdná plocha po stranách.
 
 ```
-┌───────────────┬──────────────────────────────────────────────┐
-│ Strom složek  │  pás miniatur  ◀ ▢ ▢ ▣ ▢ ▢ ▶      32/120 ✓   │
-│ (lze sbalit)  │ ┌──────────────────────────────────────────┐ │
-│               │ │               VELKÁ FOTKA                │ │
-│               │ └──────────────────────────────────────────┘ │
-│               │ ┌─ Popisek ───────────────────── ✓ Uloženo ┐ │
-│               │ └──────────────────────────────────────────┘ │
-│               │ [◀ Předchozí] [🎤 DIKTOVAT] [✨ Vylepšit] [Další ▶] │
-│               │ [↶ Zpět] [↷ Znovu] [Smazat popisek] [⋯ Více]  │
-└───────────────┴──────────────────────────────────────────────┘
+┌──────────────┬───────────────────────────────────────────────────────────┐
+│ Strom složek │ pás miniatur ◀ ▢ ▢ ▣ ▢ ▢ ▢ ▢ ▶            Fotka 214 z 500 │
+│ (lze sbalit) │ ┌────────────────────────────────────┐ ┌────────────────┐ │
+│              │ │                                    │ │ starý popisek? │ │
+│              │ │                                    │ ├─ Popisek ──────┤ │
+│              │ │◀          VELKÁ FOTKA             ▶│ │ (vysoké pole,  │ │
+│              │ │                                    │ │  natáhne se)   │ │
+│              │ │                                    │ ├────────────────┤ │
+│              │ │                                    │ │ [🎤 DIKTOVAT ] │ │
+│              │ │                                    │ │ [✨ Vylepšit ] │ │
+│ Filtry       │ │                                    │ │ [◀ Předch][Další ▶]│
+│              │ └────────────────────────────────────┘ │ [↶ Zpět][↷ Znovu]│ │
+│              │                                        │ [Smazat][⋯ Více] │ │
+└──────────────┴────────────────────────────────────────┴──────────────────┘
 ```
 
-- Po otevření složky se zobrazí miniatury a **první fotka velká**.
-- Miniatury mají značku stavu: ✓ popsáno, ✎ rozepsáno, bez značky = prázdné.
+- Pravý panel: upozornění na starý vepsaný popisek → pole popisku (vyplní volnou výšku) → **Diktovat** (největší tlačítko, přes celou šířku) → **Vylepšit text** → Předchozí / Další → Zpět / Znovu → Smazat popisek / Více.
+- Na okrajích fotky velké poloprůhledné šipky ◀ ▶ pro předchozí / další fotku.
+- Okno aplikace využívá celou šířku monitoru.
+- Varianta „popisek pod fotkou“ zůstane jen jako volba v nastavení (pro jiný poměr stran monitoru), výchozí je vedle.
+- Miniatury mají značku stavu (viz 2.5).
 - Filtry: „jen nepopsané“, „skrýt běžné fotky“.
 - Otočení fotky ↻ (v menu ⋯).
-- Popisek je **pod** fotkou.
+- Maketa: https://claude.ai/artifact/WzmcgPRpu6q2vw9fHcCVfy (soukromá, ukázková data).
 
 ### 2.3 Čtecí režim
 - Celá obrazovka, vzhled listování albem (fotka + popisek), ovládání šipkami.
@@ -45,6 +53,27 @@ Cílový monitor: 21″, 1920×1080. Rozložení:
 ### 2.4 Nastavení (jen pro správce)
 - Kořenová složka s fotkami, AI služby a klíče, styl popisků, slovníček jmen a míst.
 - Pro dědu skryté (heslo / klávesová zkratka).
+
+### 2.5 Velké složky (stovky fotek) a pokračování
+Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popisek**.
+
+**Stavy fotky** (barva a značka na miniatuře):
+
+| Stav | Význam | Značka |
+|---|---|---|
+| Nepopsaná | zatím nikdo neřešil | bez značky |
+| Rozepsaná | je diktát, ale ne hotový popisek | ✎ oranžová |
+| Popsaná | hotový popisek | ✓ zelená |
+| **Bez popisku** | záměrně přeskočena, popisek nepotřebuje | – šedá |
+| Ke smazání | označena, smaže se při zavření | ✕ červená |
+
+- Tlačítko / akce **„Bez popisku“** (v menu ⋯ i klávesou) – fotka se počítá jako vyřízená a přeskočí se.
+- **Postup složky** = (popsané + bez popisku) / celkem, např. „Vyřízeno 214 z 500“.
+- **„Další nepopsaná“** – skok na nejbližší fotku, která ještě nic nemá (přeskočí popsané i „bez popisku“).
+- **Pruh postupu** pod pásem miniatur: tenký barevný pruh celé složky (zelená/oranžová/šedá/prázdná), kliknutím se skočí na dané místo – v 500 fotkách je hned vidět, kde je hotovo a kde ne.
+- **Přehled složky** (mřížka velkých miniatur se stavy) pro rychlé procházení, výběr i hromadné „bez popisku“.
+- **Pokračování:** aplikace si pro každou složku pamatuje poslední fotku a globálně poslední složku. Po otevření složky se pokračuje na posledním místě (první fotka jen u nové složky). Poslední místo je součástí sdílených dat, takže jde pokračovat i na jiném zařízení.
+- Čtecí režim ve výchozím stavu ukazuje jen fotky s popiskem.
 
 ## 3. Diktování a AI
 
@@ -75,7 +104,7 @@ Cílový monitor: 21″, 1920×1080. Rozložení:
 - Automaticky při přechodu na jinou fotku **a** průběžně během psaní; indikátor „✓ Uloženo“.
 - Popisek do JPG metadat: **XMP `dc:description`, IPTC `Caption-Abstract`, EXIF `ImageDescription`** (UTF-8).
 - Zápis metadat bez přepočítání obrazových dat (např. ExifTool).
-- Surový diktát, historie verzí, stavy a katalog alb: lokální databáze aplikace (SQLite) v profilu uživatele.
+- Surový diktát, historie verzí, stavy fotek, poslední pozice a katalog alb: databáze aplikace – zpočátku lokální (SQLite), s výhledem na sdílenou databázi (kap. 9).
 - Datum fotky se bere vždy z EXIF.
 
 ## 5. Mazání fotek
@@ -113,11 +142,38 @@ Cílový monitor: 21″, 1920×1080. Rozložení:
 - Testovací fotky v repozitáři jen vlastní / bez osob, nikdy rodinné fotky.
 - Fotky se do cloudu posílají jen při akcích, které to vyžadují (čtení / odstranění textu); popisky a diktát se posílají jako text.
 
-## 9. Technologie (návrh)
+## 9. Tablet a sdílená data (plánováno)
 
-- .NET 8, C#, WinUI 3 (případně WPF), instalátor s automatickými aktualizacemi.
-- SQLite, ExifTool, cloudové AI služby přes HTTPS.
-- Připravit na budoucí síťovou složku (Synology NAS) – **synchronizace zatím mimo rozsah**.
+Uvažuje se o **verzi pro tablet** se **sdílenými daty** – děda může začít u počítače a pokračovat na tabletu (a naopak).
+
+**Výchozí situace:** Synology NAS mimo domácí síť, dostupný přes **Tailscale**; alternativně Google účet.
+
+### Varianty
+
+**A) Synology + Tailscale jako centrum (doporučeno)**
+- Fotky leží na NAS. Na NAS běží malá služba „Fotoalbum server“ (Docker / Container Manager): databáze, náhledy, zápis metadat ExifToolem, volání AI.
+- Počítač i tablet se připojí přes Tailscale (síť je soukromá, nic se nevystavuje do internetu).
+- Výhody: jeden zdroj pravdy, žádné konflikty synchronizace, tablet nemusí mít fotky u sebe, **API klíče jsou jen na NAS** (ne na tabletu ani v počítači).
+- Nevýhody: bez připojení k NAS se nepracuje (lze doplnit offline mezipaměť pro rozpracovanou složku).
+
+**B) Google Drive**
+- Fotky a data na Google Disku, aplikace je stahují přes API.
+- Nevýhody: databázový soubor SQLite se přes synchronizaci snadno poškodí / rozdvojí; 500 fotek na tablet je pomalé; Google Fotky neumožňují cizí aplikaci měnit popisky existujících fotek. **Nedoporučeno.**
+
+### Pravidla pro sdílená data (platí pro obě varianty)
+- Zdrojem pravdy pro popisek zůstává **metadata v JPG**; databáze drží navíc diktát, historii, stavy a pozice.
+- Současná práce na dvou zařízeních: zámek na úrovni fotky; když je fotka otevřená jinde, zobrazí se upozornění, nic se tiše nepřepíše.
+- Každá změna má čas a zařízení; historie verzí umožní návrat.
+
+### Dopad na technologii – k rozhodnutí
+Pokud bude tablet, nevyplatí se psát čistě windowsovou aplikaci. Návrh: **webové rozhraní obsluhované serverem na NAS** (funguje v prohlížeči tabletu přes HTTPS z Tailscale; mikrofon v prohlížeči funguje), na Windows zabalené jako normální aplikace (WebView2). Jedno rozhraní pro obě zařízení, maketa je už v HTML.
+Alternativa: multiplatformní aplikace (.NET MAUI / Flutter) – víc práce, nativnější pocit.
+
+## 10. Technologie (návrh – čeká na rozhodnutí o tabletu)
+
+- Původní návrh pro samotný počítač: .NET 8, C#, WinUI 3, SQLite, ExifTool, instalátor s automatickými aktualizacemi.
+- Při variantě A z kap. 9: server (.NET nebo Node) v Dockeru na Synology, SQLite/PostgreSQL, ExifTool, webové rozhraní; Windows obal přes WebView2.
+- Cloudové AI služby přes HTTPS.
 
 ### Etapy
 1. **MVP**: strom složek, miniatury, velká fotka, ruční popisek, automatické ukládání do metadat, označení ke smazání.
@@ -125,9 +181,14 @@ Cílový monitor: 21″, 1920×1080. Rozložení:
 3. Knihovna alb, úvodní texty, filtry běžných fotek.
 4. Staré vepsané popisky: přečtení a odstranění.
 5. Čtecí režim.
+6. Tablet a sdílená data (kap. 9) – pokud se zvolí architektura se serverem na NAS, je výhodné ji založit už v etapě 1.
 
-## 10. Otevřené otázky
+## 11. Otevřené otázky
 
 1. Ukázkové fotky (2–3) s vepsaným textem pro test čtení a odstranění – dodá uživatel soukromě, ne do repozitáře.
 2. Výběr konkrétní služby pro přepis řeči a pro inpainting (po testu na ukázkách).
 3. Vzhled čtecího režimu.
+4. Tablet: iPad, nebo Android? Jaká velikost?
+5. Kde jsou fotky dnes – na disku počítače, nebo už na Synology? Kolik jich je celkem (GB)?
+6. Sdílená data: varianta A (Synology + Tailscale) – souhlas? Má NAS Container Manager (Docker)?
+7. Má jít pracovat i bez připojení k NAS (např. na chalupě bez internetu)?
