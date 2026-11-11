@@ -50,6 +50,15 @@ Cílový monitor: 21″, 1920×1080. **Schváleno: popisek a ovládání jsou VE
 - Celá obrazovka, vzhled listování albem (fotka + popisek), ovládání šipkami.
 - Konkrétní vzhled se ještě doladí. PDF / fotokniha zatím **mimo rozsah**.
 
+### 2.3.1 Promítání na televizi (plánováno)
+Cíl: pustit hotové album na **TV Samsung řady F** (pravděpodobně model z roku 2013, platforma před Tizenem – nové aplikace na ni nejdou instalovat, prohlížeč je zastaralý).
+
+- **Hlavní cesta – export „Promítání“ do videa MP4** (H.264, 1080p): fotka + popisek pěkným písmem v dolní části, plynulé přechody, nastavitelná délka zobrazení podle délky popisku, volitelně hudba. Tuto podobu TV řady F spolehlivě přehraje.
+- Přehrání: z **Synology přes DLNA** (balíček Media Server; TV ho najde v seznamu zdrojů) nebo z **USB disku**. Děda pak ovládá jen dálkovým ovladačem.
+- Doplňková cesta: export kopií fotek s vepsaným popiskem (JPG, originály se nemění) pro prohlížeč fotek v TV.
+- Interaktivní listování (jako čtecí režim) jen přes externí zařízení na HDMI (notebook, případně levný TV stick) – volitelné.
+- Fotky ani popisky se kvůli TV neposílají do žádného cizího cloudu.
+
 ### 2.4 Nastavení (jen pro správce)
 - Kořenová složka s fotkami, AI služby a klíče, styl popisků, slovníček jmen a míst.
 - Pro dědu skryté (heslo / klávesová zkratka).
@@ -180,7 +189,7 @@ Alternativa: multiplatformní aplikace (.NET MAUI / Flutter) – víc práce, na
 2. Diktování, ✨ Vylepšit, hlasové opravy, historie verzí, slovníček.
 3. Knihovna alb, úvodní texty, filtry běžných fotek.
 4. Staré vepsané popisky: přečtení a odstranění.
-5. Čtecí režim.
+5. Čtecí režim a export „Promítání“ do videa pro TV.
 6. Tablet a sdílená data (kap. 9) – pokud se zvolí architektura se serverem na NAS, je výhodné ji založit už v etapě 1.
 
 ## 11. Otevřené otázky
@@ -192,3 +201,5 @@ Alternativa: multiplatformní aplikace (.NET MAUI / Flutter) – víc práce, na
 5. Kde jsou fotky dnes – na disku počítače, nebo už na Synology? Kolik jich je celkem (GB)?
 6. Sdílená data: varianta A (Synology + Tailscale) – souhlas? Má NAS Container Manager (Docker)?
 7. Má jít pracovat i bez připojení k NAS (např. na chalupě bez internetu)?
+8. Přesný model TV (štítek vzadu, např. UE40F6400) – ověřit podporu DLNA/USB a formátu videa.
+9. Promítání: hudba ano/ne? Jak dlouho zobrazit jednu fotku?
