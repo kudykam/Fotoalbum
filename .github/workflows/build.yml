@@ -9,19 +9,26 @@ on:
 permissions:
   contents: read
 
+# Novější běh na stejné větvi zruší starší, který ještě běží.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   testy:
     name: Testy (Linux)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
       - name: ExifTool
+        timeout-minutes: 8
         run: |
           for i in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl && exit 0
+            sudo timeout 90 apt-get -o Acquire::Retries=3 update && sudo timeout 120 apt-get -o Acquire::Retries=3 install -y libimage-exiftool-perl && exit 0
             echo "Pokus $i selhal, zkouším znovu…"; sleep 20
           done
           exit 1
@@ -32,6 +39,7 @@ jobs:
     name: Aplikace pro Windows
     runs-on: windows-latest
     needs: testy
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-dotnet@v5
