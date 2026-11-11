@@ -30,3 +30,6 @@ obj/
 packages/
 TestResults/
 AppPackages/
+
+# --- ExifTool pro Windows se stahuje při sestavení, není v repozitáři ---
+src/Fotoalbum.Desktop/exiftool/

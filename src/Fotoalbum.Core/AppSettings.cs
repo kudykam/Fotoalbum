@@ -1,0 +1,82 @@
+using System.Text.Json;
+
+namespace Fotoalbum.Core;
+
+/// <summary>Nastavení aplikace. Ukládá se do profilu uživatele, nikdy do repozitáře.</summary>
+public sealed class AppSettings
+{
+    /// <summary>Kořenová složka s fotkami (např. D:\Fotky).</summary>
+    public string? PhotoRoot { get; set; }
+
+    /// <summary>Volitelná cesta k exiftool(.exe). Prázdné = hledá se vedle aplikace a v PATH.</summary>
+    public string? ExifToolPath { get; set; }
+
+    /// <summary>Kolik posledních záloh databáze ponechat ve složce _fotoalbum/zaloha.</summary>
+    public int BackupsToKeep { get; set; } = 10;
+}
+
+/// <summary>Umístění dat aplikace mimo složku s fotkami.</summary>
+public sealed class AppPaths
+{
+    public AppPaths(string? dataDir = null)
+    {
+        DataDir = dataDir ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData,
+                Environment.SpecialFolderOption.Create),
+            "Fotoalbum");
+        Directory.CreateDirectory(DataDir);
+        Directory.CreateDirectory(ThumbDir);
+    }
+
+    public string DataDir { get; }
+    public string SettingsFile => Path.Combine(DataDir, "settings.json");
+    public string CatalogFile => Path.Combine(DataDir, "katalog.db");
+    public string ThumbDir => Path.Combine(DataDir, "nahledy");
+}
+
+public sealed class SettingsStore
+{
+    private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
+    private readonly AppPaths _paths;
+    private readonly object _lock = new();
+    private AppSettings _current;
+
+    public SettingsStore(AppPaths paths)
+    {
+        _paths = paths;
+        _current = Load();
+    }
+
+    public AppSettings Current { get { lock (_lock) return _current; } }
+
+    public event Action? Changed;
+
+    public void Update(Action<AppSettings> change)
+    {
+        lock (_lock)
+        {
+            var copy = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(_current))!;
+            change(copy);
+            var tmp = _paths.SettingsFile + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(copy, Json));
+            File.Move(tmp, _paths.SettingsFile, overwrite: true);
+            _current = copy;
+        }
+        Changed?.Invoke();
+    }
+
+    private AppSettings Load()
+    {
+        try
+        {
+            if (File.Exists(_paths.SettingsFile))
+                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(_paths.SettingsFile)) ?? new();
+        }
+        catch (JsonException)
+        {
+            // Poškozený soubor: začneme s výchozím nastavením, starý soubor ponecháme pro kontrolu.
+            File.Copy(_paths.SettingsFile, _paths.SettingsFile + ".poskozeny", overwrite: true);
+        }
+        return new AppSettings();
+    }
+}

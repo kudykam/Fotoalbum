@@ -190,13 +190,27 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 ### AI a klíče
 - Klíče jen na PC (šifrovaně, DPAPI). Tablet posílá požadavky přes PC → klíče nikdy na tabletu.
 
-## 10. Technologie (návrh)
+## 10. Technologie (rozhodnuto v etapě 1)
 
-- **PC aplikace:** .NET 8 (Windows) s vestavěným webovým serverem (Kestrel) pro tablet; SQLite; ExifTool; DLNA (UPnP AV) odesílání na TV; spuštění s Windows, ikona v oznamovací oblasti.
-- **Uživatelské rozhraní:** jedno webové rozhraní (HTML – navazuje na maketu), na PC zobrazené v aplikaci (WebView2), na tabletu v prohlížeči jako „aplikace na ploše“ (PWA). Jeden vzhled, jedna údržba, funguje na Androidu i iPadu.
-- **Mikrofon na tabletu:** prohlížeč povolí mikrofon jen přes HTTPS → PC aplikace vytvoří vlastní certifikát, správce ho jednou nainstaluje do tabletu. Záložně diktování přes mikrofon klávesnice tabletu (Gboard / Samsung klávesnice umí česky).
-- Pokud by se ukázala potřeba (offline tablet, plynulost), lze později doplnit nativní aplikaci pro Android nad stejným API.
-- Cloudové AI služby přes HTTPS (volá je PC).
+- **.NET 10 (LTS)**, C#.
+- **Fotoalbum.Core** – knihovna fotek, databáze **SQLite** (Microsoft.Data.Sqlite), zápis/čtení metadat **ExifTool** (argumenty přes UTF-8 soubor, diakritika v cestách i textech), náhledy **SkiaSharp** (MIT; respektuje EXIF orientaci).
+- **Fotoalbum.Server** – ASP.NET Core minimal API + webové rozhraní (HTML/CSS/JS bez frameworku, přibalené v knihovně). Poslouchá jen na `127.0.0.1`, náhodný port, jednorázový klíč v cookie. Pro tablet se později zapne poslech v domácí síti s párováním (kap. 9).
+- **Fotoalbum.Desktop** – WinForms okno s **WebView2**, koš Windows, výběr složky dialogem, jedna instance, zavření přes souhrn mazání v rozhraní.
+- Sestavení: GitHub Actions – testy na Linuxu, samostatný balíček pro Windows (win-x64, bez instalace .NET) + ExifTool.
+- Popisek se zapisuje do XMP `dc:description`, IPTC `Caption-Abstract` (+ `CodedCharacterSet=UTF8`), EXIF `ImageDescription`. Texty, které do popisu vkládají fotoaparáty (např. „OLYMPUS DIGITAL CAMERA“), se nepovažují za popisek.
+- Ukládání: databáze okamžitě, do fotky ~3 s po posledním psaní, při přechodu na jinou fotku a při zavření. Rozpracovaný text (`isDraft`) se do fotky nezapisuje.
+- Řazení fotek ve složce: podle data pořízení (EXIF), pak podle názvu.
+- Složky začínající `_` nebo `.` a systémové složky Synology (`@eaDir`, `#recycle`) se nezobrazují.
+- Otočení fotky se zatím ukládá jen v aplikaci (do souboru se nezapisuje).
+- AI: cloudové služby volané z PC (klíče jen na PC, šifrovaně).
+
+### Etapy
+1. **MVP – hotovo** (čeká na vyzkoušení ve Windows): strom složek, miniatury, velká fotka, ruční popisek, automatické ukládání do metadat, označení ke smazání, stavy „bez popisku“ a pokračování (2.5), záloha databáze, lokální server + webové rozhraní.
+2. Diktování, ✨ Vylepšit, hlasové opravy, historie verzí v rozhraní, slovníček jmen a míst.
+3. Knihovna alb (2.1), úvodní texty, vyhledávání.
+4. Staré vepsané popisky: přečtení a odstranění (kap. 7).
+5. Čtecí režim – obě varianty (2.3) a „Pustit na televizi“ (2.3.1).
+6. Tablet jako druhá obrazovka PC (kap. 9): poslech v domácí síti, párování QR kódem, probuzení PC.
 
 ## 11. Otevřené otázky
 

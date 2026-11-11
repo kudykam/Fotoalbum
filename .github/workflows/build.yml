@@ -1,0 +1,52 @@
+name: Sestavení a testy
+
+on:
+  push:
+    branches: [ main, "claude/**" ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testy:
+    name: Testy (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: ExifTool
+        run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
+      - run: dotnet build -c Release
+      - run: dotnet test -c Release --no-build
+
+  windows:
+    name: Aplikace pro Windows
+    runs-on: windows-latest
+    needs: testy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Sestavení (samostatná aplikace, není potřeba instalovat .NET)
+        run: dotnet publish src/Fotoalbum.Desktop -c Release -r win-x64 --self-contained -o out/Fotoalbum
+      - name: Přibalit ExifTool (aktuální verze z exiftool.org)
+        shell: pwsh
+        run: |
+          $v = (Invoke-WebRequest -UseBasicParsing https://exiftool.org/ver.txt).Content.Trim()
+          Invoke-WebRequest -UseBasicParsing "https://exiftool.org/exiftool-${v}_64.zip" -OutFile exiftool.zip
+          Expand-Archive exiftool.zip -DestinationPath exiftool-tmp
+          $dir = Get-ChildItem exiftool-tmp -Directory | Select-Object -First 1
+          New-Item -ItemType Directory -Force out/Fotoalbum/exiftool | Out-Null
+          Copy-Item -Recurse "$($dir.FullName)/*" out/Fotoalbum/exiftool/
+          Rename-Item "out/Fotoalbum/exiftool/exiftool(-k).exe" exiftool.exe
+          & out/Fotoalbum/exiftool/exiftool.exe -ver
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Fotoalbum-win-x64
+          path: out/Fotoalbum
+          retention-days: 30

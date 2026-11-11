@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Fotoalbum.Core/Fotoalbum.Core.csproj" />
+    <Project Path="src/Fotoalbum.Desktop/Fotoalbum.Desktop.csproj" />
+    <Project Path="src/Fotoalbum.Server/Fotoalbum.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Fotoalbum.Core.Tests/Fotoalbum.Core.Tests.csproj" />
+  </Folder>
+</Solution>

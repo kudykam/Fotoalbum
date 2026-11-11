@@ -1,9 +1,71 @@
 # Fotoalbum
 
-Aplikace pro Windows na popisování fotografií z cest diktováním a s pomocí AI. Popisky se ukládají přímo do metadat JPG.
+Aplikace pro Windows na popisování fotografií z cest. Popisky se ukládají přímo do metadat JPG
+(XMP `dc:description`, IPTC `Caption-Abstract`, EXIF `ImageDescription`), takže je uvidí i jiné programy.
 
-Projekt je ve fázi **plánování** – zadání je v [docs/SPECIFIKACE.md](docs/SPECIFIKACE.md).
+Zadání: [docs/SPECIFIKACE.md](docs/SPECIFIKACE.md) · maketa: [docs/maketa/fotoalbum-maketa.html](docs/maketa/fotoalbum-maketa.html)
 
 ## ⚠️ Veřejný repozitář
 
-Do repozitáře **nikdy** neukládejte API klíče, hesla ani rodinné fotografie. Klíče se zadávají až v nastavení aplikace na konkrétním počítači a ukládají se šifrovaně mimo repozitář. Podrobnosti: kapitola 8 specifikace.
+Do repozitáře **nikdy** neukládejte API klíče, hesla ani rodinné fotografie. Klíče se zadávají až v aplikaci
+na konkrétním počítači. Podrobnosti v kapitole 8 specifikace.
+
+## Stav: etapa 1 (MVP)
+
+Hotovo:
+- strom složek s počty vyřízených fotek, druh složky (cestovní / běžné fotky),
+- pás miniatur, barevný pruh postupu, „Další nepopsaná“, filtry,
+- velká fotka s šipkami, otočení,
+- popisek: ukládá se sám (do databáze hned, do fotky po chvíli / při přechodu na jinou fotku / při zavření), Zpět / Znovu, historie verzí v databázi,
+- stavy fotky: popsáno, bez popisku (klávesa **B**), označeno ke smazání,
+- mazání jen do koše Windows a až po potvrzení při zavření programu,
+- pokračování tam, kde se minule skončilo,
+- záloha databáze do `_fotoalbum\zaloha` ve složce s fotkami (zálohuje ji Synology Drive).
+
+Další etapy (diktování, AI, knihovna alb, čtení, tablet, televize) – viz specifikace, kap. „Etapy“.
+
+## Ovládání
+
+| Akce | Ovládání |
+|---|---|
+| Předchozí / další fotka | šipky na fotce, tlačítka, klávesy ← → (mimo psaní), PageUp / PageDown (i při psaní) |
+| Bez popisku | Více → Bez popisku, klávesa **B** |
+| Nastavení (složka s fotkami) | **Ctrl+Alt+S** – pro správce |
+
+## Struktura
+
+```
+src/Fotoalbum.Core      jádro: knihovna fotek, databáze (SQLite), ExifTool, náhledy (SkiaSharp)
+src/Fotoalbum.Server    lokální server + webové rozhraní (ui/), stejné rozhraní později pro tablet
+src/Fotoalbum.Desktop   aplikace pro Windows: okno s WebView2, koš Windows, výběr složky
+tests/                  testy jádra (xUnit)
+```
+
+Aplikace pro Windows spouští server jen pro tento počítač (`127.0.0.1`, náhodný port, jednorázový přístupový klíč).
+Data aplikace jsou v `%LOCALAPPDATA%\Fotoalbum` (databáze `katalog.db`, náhledy, nastavení).
+
+## Vývoj
+
+Potřeba: .NET SDK 10, ExifTool.
+
+```bash
+dotnet build
+dotnet test                                   # testy potřebují exiftool v PATH (Linux: apt install libimage-exiftool-perl)
+
+# rozhraní v prohlížeči (Linux i Windows), adresu vypíše konzole:
+dotnet run --project src/Fotoalbum.Server -- --data ./tmp-data --url http://127.0.0.1:5180
+```
+
+Aplikace pro Windows:
+
+```powershell
+dotnet publish src/Fotoalbum.Desktop -c Release -r win-x64 --self-contained -o out/Fotoalbum
+```
+
+ExifTool pro Windows (https://exiftool.org, „Windows Executable“) rozbalte do `out/Fotoalbum/exiftool/`
+a soubor `exiftool(-k).exe` přejmenujte na `exiftool.exe`. GitHub Actions to dělají automaticky –
+hotový balíček je v záložce **Actions** jako artefakt `Fotoalbum-win-x64`.
+
+## Licence použitých součástí
+
+.NET, Microsoft.Data.Sqlite, WebView2 (Microsoft), SkiaSharp (MIT), ExifTool (Phil Harvey, licence Perl / GPL – přibaluje se jako samostatný program).
