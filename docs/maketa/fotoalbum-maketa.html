@@ -261,6 +261,27 @@ textarea::placeholder{color:var(--muted);font-style:italic}
 .dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25)}
 .dots i.on{background:#fff}
 
+/* čtení – varianta fotka přes celou obrazovku */
+.read.fullm .stagebook{padding:0;grid-template-columns:minmax(0,1fr);position:relative}
+.read.fullm .bigarrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;background:rgba(0,0,0,.35)}
+.read.fullm #rPrev{left:16px}.read.fullm #rNext{right:16px}
+.read.fullm .bigarrow:disabled{opacity:0}
+.read.fullm .read-foot{display:none}
+.book.fullmode{display:block;background:#000;border-radius:0;box-shadow:none}
+.book.fullmode::after{display:none}
+.fullv{position:relative;width:100%;height:100%;background:#000}
+.fullv canvas{display:block;width:100%;height:100%;object-fit:contain}
+.capbox{position:absolute;left:50%;bottom:4%;transform:translateX(-50%);width:min(86%,1150px);background:rgba(10,12,11,.62);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#f5f2ea;border-radius:16px;padding:18px 28px 20px;display:grid;gap:8px;border:1px solid rgba(255,255,255,.12)}
+.capbox .dt{font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:#cfc8b8;display:flex;gap:16px}
+.capbox .dt span:last-child{margin-left:auto;letter-spacing:0;font-variant-numeric:tabular-nums}
+.capbox p{margin:0;font-family:var(--text);font-size:clamp(19px,1.55vw,28px);line-height:1.5;text-wrap:pretty}
+.capbox h2{margin:0;font-family:var(--text);font-weight:500;font-size:clamp(30px,2.6vw,46px);line-height:1.1}
+.capbox.hide{opacity:0;pointer-events:none}
+.capbox{transition:opacity .3s}
+.fsx{position:absolute;top:16px;right:16px;z-index:4;border:0;border-radius:10px;background:rgba(0,0,0,.5);color:#fff;padding:10px 16px;font-size:16px;cursor:pointer}
+.read:fullscreen{grid-template-rows:0 auto minmax(0,1fr) 0}
+.read:fullscreen .read-tools{display:none}
+
 /* toast + modal */
 kbd{font-family:var(--ui);font-size:13px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;color:var(--muted);font-weight:400}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--win);padding:12px 16px 12px 20px;border-radius:12px;display:flex;gap:14px;align-items:center;font-size:17px;z-index:40;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
@@ -296,6 +317,9 @@ kbd{font-family:var(--ui);font-size:13px;border:1px solid var(--line);border-bot
   .book::after{display:none}
   .stagebook{grid-template-columns:1fr;padding:14px 0}
   .bigarrow{display:none}
+  .read.fullm .book{height:auto}
+  .fullv canvas{height:auto;aspect-ratio:3/2}
+  .capbox{position:static;transform:none;width:auto;border-radius:0}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -379,15 +403,18 @@ kbd{font-family:var(--ui);font-size:13px;border:1px solid var(--line);border-bot
     <div class="read-tools">
       <label for="rAlbum" style="font-size:16px;color:var(--muted)">Album</label>
       <select id="rAlbum"></select>
+      <span class="seg big" role="group" aria-label="Vzhled čtení">Vzhled:<button id="mBook" aria-pressed="true">Kniha</button><button id="mFull" aria-pressed="false">Fotka přes celou plochu</button></span>
       <label class="toggle"><input type="checkbox" id="rOnly" checked> Jen fotky s popiskem</label>
       <span class="spacer"></span>
       <button class="b small" id="rAuto"><svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px"><path d="M7 4l13 8-13 8z"/></svg><span id="rAutoT">Přehrávat samo</span></button>
+      <button class="b small" id="rCap" hidden><span id="rCapT">Skrýt popisek</span></button>
+      <button class="b small" id="rFs" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Celá obrazovka</button>
       <button class="b small solid" id="rTv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Pustit na televizi</button>
     </div>
     <div class="tvbar" id="tvbar" hidden><span>Album se promítá na televizi <b>Samsung UE46F5400</b>. Listujte tady, televize ukazuje stejnou stránku.</span><button id="tvStop">Ukončit promítání</button></div>
     <div class="stagebook">
       <button class="bigarrow" id="rPrev" aria-label="Předchozí stránka"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <div class="book" id="book"></div>
+      <div class="book" id="book"></div><button class="fsx" id="fsx" hidden>Ukončit celou obrazovku</button>
       <button class="bigarrow" id="rNext" aria-label="Další stránka"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg></button>
     </div>
     <div class="read-foot"><div class="dots" id="dots"></div><span id="rPos"></span></div>
@@ -482,7 +509,7 @@ const albums=Object.values(folders).filter(f=>f.photos);
 folders.namibie.last=folders.namibie.photos[141];
 
 const S={view:"lib",folder:"kena",cur:null,lastFolder:"namibie",open:{afrika:true},fUndone:false,fEvery:false,side:true,rec:null,busy:false,saveState:"saved",savedAt:"",showRaw:false,menu:false,sort:"date",q:"",device:"pc",asleep:false};
-const R={folder:"kena",i:-1,only:true,auto:null,tv:false};
+let R={folder:"kena",i:-1,only:true,auto:null,tv:false,mode:"book",capHidden:false};try{if(localStorage.getItem("fa-read")==="full")R.mode="full"}catch(e){}
 const $=id=>document.getElementById(id);
 
 function status(p){if(p.del)return"del";return p.improved&&p.text.trim()?"done":(p.text.trim()||p.raw.trim())?"draft":p.skip?"skip":"none"}
@@ -709,7 +736,12 @@ function readPages(){const f=folders[R.folder];return f.photos.filter(p=>!p.del&
 function renderRead(){const sel=$("rAlbum");sel.innerHTML=albums.map(f=>`<option value="${f.id}" ${f.id===R.folder?"selected":""}>${title(f)}</option>`).join("");
  const f=folders[R.folder],pg=readPages();if(R.i>=pg.length)R.i=pg.length-1;const book=$("book");
  const st=stats(f);
- if(R.i<0){const cov=f.photos.find(p=>status(p)==="done")||f.photos[0];
+ const full=R.mode==="full";$("vRead").classList.toggle("fullm",full);book.classList.toggle("fullmode",full);
+ $("mBook").setAttribute("aria-pressed",!full);$("mFull").setAttribute("aria-pressed",full);$("rFs").hidden=!full;$("rCap").hidden=!full;$("rCapT").textContent=R.capHidden?"Ukázat popisek":"Skrýt popisek";
+ if(full){const cover=R.i<0;const p=cover?(f.photos.find(x=>status(x)==="done")||f.photos[0]):pg[R.i];
+  book.innerHTML=`<div class="fullv"><canvas id="rcv" width="1500" height="1000"></canvas><div class="capbox${R.capHidden?" hide":""}" id="capbox">${cover?`<div class="dt"><span>${f.period}</span><span>${pg.length} fotografií</span></div><h2>${title(f)}</h2>${f.intro?`<p>${f.intro}</p>`:""}`:`<div class="dt"><span>${p.date}</span><span>${title(f)}</span><span>${R.i+1} / ${pg.length}</span></div><p>${p.text||"<i>Tato fotka zatím nemá popisek.</i>"}</p>`}</div></div>`;
+  drawPhoto($("rcv"),p);if(p.rot)$("rcv").style.transform=`rotate(${p.rot}deg)`}
+ else if(R.i<0){const cov=f.photos.find(p=>status(p)==="done")||f.photos[0];
   book.innerHTML=`<div class="pg l"><canvas id="rcv" width="1500" height="1000"></canvas></div><div class="pg r"><div class="dt">${f.period}</div><h2>${title(f)}</h2>${f.intro?`<p class="intro">${f.intro}</p>`:""}<div class="pl">${pg.length} ${pg.length===1?"fotografie":pg.length<5?"fotografie":"fotografií"} s popiskem</div><div class="no">Úvodní strana</div></div>`;
   drawPhoto($("rcv"),cov)}
  else{const p=pg[R.i];
@@ -727,6 +759,12 @@ $("rPrev").onclick=()=>rStep(-1);$("rNext").onclick=()=>rStep(1);
 $("rAlbum").onchange=e=>{R.folder=e.target.value;R.i=-1;stopAuto();renderRead()};
 $("rOnly").onchange=e=>{R.only=e.target.checked;R.i=-1;renderRead()};
 $("book").onclick=e=>{const r=e.currentTarget.getBoundingClientRect();rStep(e.clientX>r.left+r.width/2?1:-1)};
+$("rCap").onclick=()=>{R.capHidden=!R.capHidden;renderRead()};
+function setReadMode(m){R.mode=m;try{localStorage.setItem("fa-read",m)}catch(e){}renderRead()}
+$("mBook").onclick=()=>{if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});setReadMode("book")};$("mFull").onclick=()=>setReadMode("full");
+$("rFs").onclick=()=>{const el=$("vRead");if(el.requestFullscreen)el.requestFullscreen().catch(()=>toast("Celou obrazovku tady prohlížeč nepovolil. V aplikaci to fungovat bude."));else toast("Celou obrazovku tady prohlížeč nepovolil. V aplikaci to fungovat bude.")};
+$("fsx").onclick=()=>document.exitFullscreen().catch(()=>{});
+document.addEventListener("fullscreenchange",()=>{$("fsx").hidden=!document.fullscreenElement});
 $("rTv").onclick=()=>{modal(`<h3>Pustit na televizi</h3><p><span class="spin"></span>Hledám televizi v domácí síti…</p>`,()=>{});
  setTimeout(()=>{modal(`<h3>Pustit na televizi</h3><p>Nalezená zařízení v domácí Wi-Fi:</p><div class="row"><button class="dev" data-a="tv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span>Samsung UE46F5400<small>Obývák · fotky s popisky posílá počítač</small></span></button>
  ${S.device==="tablet"?'<button class="dev" data-a="mirror"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="11" height="16" rx="2"/><path d="M14 9h7v10h-9"/></svg><span>Zrcadlit obrazovku tabletu<small>Smart View: TV ukáže přesně to, co tablet</small></span></button>':""}

@@ -47,8 +47,16 @@ Cílový monitor: 21″, 1920×1080. **Schváleno: popisek a ovládání jsou VE
 - Maketa (Knihovna, Pracovna, Čtení, náhled tabletu): https://claude.ai/artifact/WzmcgPRpu6q2vw9fHcCVfy (soukromý odkaz) a kopie v repozitáři `docs/maketa/fotoalbum-maketa.html` (otevřít v prohlížeči; ukázková data).
 
 ### 2.3 Čtecí režim
-- Celá obrazovka, vzhled listování albem (fotka + popisek), ovládání šipkami.
-- Konkrétní vzhled se ještě doladí. PDF / fotokniha zatím **mimo rozsah**.
+Dvě rovnocenné varianty vzhledu, přepínač **„Vzhled: Kniha / Fotka přes celou plochu“** (volba se pamatuje):
+
+1. **Kniha** – otevřená dvoustrana: vlevo fotka v bílém rámečku, vpravo datum, popisek knižním písmem, název alba a číslo strany. Úvodní strana s titulní fotkou, názvem, obdobím a úvodním textem alba.
+2. **Fotka přes celou plochu** – fotka vyplní celou plochu (černé pozadí, poměr stran zachován), popisek je dole v **poloprůhledném obdélníku** (rozmazané pozadí, světlé knižní písmo; nahoře datum, album, číslo strany). Tlačítko **Skrýt / Ukázat popisek** a **Celá obrazovka** (bez lišt aplikace; ukončení tlačítkem nebo Esc). Úvodní strana: titulní fotka + název a úvodní text v obdélníku.
+
+Společné pro obě varianty:
+- Listování velkými šipkami, klepnutím na levou/pravou polovinu, klávesami ← → a mezerníkem.
+- **Přehrávat samo** (otočení po ~5 s), **Jen fotky s popiskem** (výchozí zapnuto).
+- **Pustit na televizi** (viz 2.3.1) – TV ukazuje stejnou stránku; pro TV se snímek skládá ve variantě „fotka přes celou plochu“.
+- PDF / fotokniha zatím **mimo rozsah**.
 
 ### 2.3.1 Promítání na televizi (plánováno)
 TV: **Samsung UE46F5400** (rok 2013, platforma před Tizenem). **Ověřeno: TV má „Screen Mirroring“ i AllShare (DLNA).** **Bez instalace aplikace do TV a bez převodu do MP4** – obraz se posílá živě z tabletu nebo PC po domácí Wi-Fi.
@@ -194,7 +202,6 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 
 1. Ukázkové fotky (2–3) s vepsaným textem pro test čtení a odstranění – dodá uživatel soukromě, ne do repozitáře.
 2. Výběr konkrétní služby pro přepis řeči a pro inpainting (po testu na ukázkách).
-3. Vzhled čtecího režimu.
 4. Synology Drive u dědy: typ úlohy (synchronizace / zálohování) a zapnuté verzování na NAS.
 5. Model Android tabletu (velikost displeje, verze Androidu) – kvůli rozložení rozhraní a mikrofonu.
 
