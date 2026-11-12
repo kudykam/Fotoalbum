@@ -86,21 +86,27 @@ function showSetup(first) {
   const st = S.state;
   $("work").hidden = true; const el = $("setup"); el.hidden = false;
   el.innerHTML = `<div class="card">
-    <h1>${first ? "Vítejte ve Fotoalbu" : "Nastavení"}</h1>
+    <div class="head"><h1>${first ? "Vítejte ve Fotoalbu" : "Nastavení"}</h1>${first ? "" : `<button class="b small solid" id="back">Zpět do Pracovny</button>`}</div>
     ${st.problem ? `<div class="note bad">${esc(st.problem)}</div>` : ""}
-    <p>Vyberte složku, ve které jsou fotky. Aplikace v ní nic nemaže; popisky zapisuje přímo do fotek.</p>
-    <label>Složka s fotkami
-      <input type="text" id="rootIn" value="${esc(st.root || "")}" placeholder="např. D:\\Fotky" autocomplete="off"></label>
-    <div class="row">${S.canPick ? `<button class="b small" id="pick">Vybrat složku…</button>` : ""}<button class="b small solid" id="saveRoot">Uložit a otevřít</button>
-      ${first ? "" : `<button class="b small" id="back">Zpět</button>`}</div>
-    <div class="note ${st.exifToolOk ? "ok" : "bad"}">${st.exifToolOk
-      ? `Zápis popisků do fotek je připravený (ExifTool ${esc(st.exifToolVersion || "")}).`
-      : "Chybí program ExifTool, bez něj se popisky nezapíší do fotek (ukládají se jen v aplikaci). Umístěte <b>exiftool.exe</b> do složky <b>exiftool</b> vedle aplikace."}</div>
-    <label class="toggle" style="font-weight:400"><input type="checkbox" id="autoImp" ${st.autoImport ? "checked" : ""}> Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky a videa (do složek „rok + roční období“, např. „2026 léto“)</label>
-    ${first ? "" : aiSection()}
-    ${first ? "" : updatesSection()}
-    ${first ? "" : `<p style="font-size:15px">Data aplikace (databáze, náhledy) jsou v profilu uživatele. Záloha databáze se ukládá do složky <b>Fotoalbum – databáze (nemazat)</b> ve složce s fotkami.</p>`}
+    <div class="sec" style="border-top:0;padding-top:0">
+      ${first ? "" : "<h2>Složka s fotkami</h2>"}
+      <p>Vyberte složku, ve které jsou fotky. Aplikace v ní nic nemaže; popisky zapisuje přímo do fotek.</p>
+      <input type="text" id="rootIn" value="${esc(st.root || "")}" placeholder="např. D:\\Fotky" autocomplete="off" aria-label="Složka s fotkami">
+      <div class="row">${S.canPick ? `<button class="b small" id="pick">Vybrat složku…</button>` : ""}<button class="b small solid" id="saveRoot">${first ? "Uložit a otevřít" : "Uložit složku"}</button></div>
+      <div class="note ${st.exifToolOk ? "ok" : "bad"}">${st.exifToolOk
+        ? `Zápis popisků do fotek je připravený (ExifTool ${esc(st.exifToolVersion || "")}).`
+        : "Chybí program ExifTool, bez něj se popisky nezapíší do fotek (ukládají se jen v aplikaci). Umístěte <b>exiftool.exe</b> do složky <b>exiftool</b> vedle aplikace."}</div>
+    </div>
+    <div class="sec"><h2>Kopírování z karty</h2>
+      <label class="toggle"><input type="checkbox" id="autoImp" ${st.autoImport ? "checked" : ""}> <span>Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky a videa do složek „rok + roční období“ (např. „2026 léto“).</span></label>
+    </div>
+    ${first ? "" : `<div class="sec">${aiSection()}</div>`}
+    ${first ? "" : `<div class="sec">${updatesSection()}</div>`}
+    ${first ? "" : `<div class="sec"><h2>Data aplikace</h2><p style="font-size:16px">Databáze a náhledy jsou v profilu uživatele. Záloha databáze se ukládá do složky <b>Fotoalbum – databáze (nemazat)</b> ve složce s fotkami.</p></div>`}
   </div>`;
+  if (!first) $("autoImp").onchange = async e => {
+    try { S.state = await api("POST", "/api/settings", { autoImport: e.target.checked }); toast("Uloženo."); } catch (err) { fail(err); }
+  };
   if (S.canPick) $("pick").onclick = async () => {
     try { const r = await api("POST", "/api/pick-folder"); if (r.folder) $("rootIn").value = r.folder; } catch (e) { fail(e); }
   };
@@ -787,6 +793,7 @@ $("clear").onclick = clearCaption;
 $("more").onclick = e => { e.stopPropagation(); S.menu ? closeMenu() : openMenu(); };
 document.addEventListener("click", e => { if (S.menu && !e.target.closest(".morewrap")) closeMenu(); });
 $("closeBtn").onclick = requestClose;
+$("gearBtn").onclick = () => { if (S.state && S.state.configured) openSettings(); };
 $("sideBtn").onclick = () => { S.side = !S.side; $("work").classList.toggle("nosidebar", !S.side); requestAnimationFrame(() => { fitImage(); drawTrack(); }); };
 $("fUndone").onchange = e => { S.fUndone = e.target.checked; S.keep.clear(); stripKey = ""; renderAll(true); };
 $("fVac").onchange = e => { S.onlyVacation = e.target.checked; renderTree(); };
