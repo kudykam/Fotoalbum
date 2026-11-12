@@ -117,6 +117,55 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 - Zapnutí/vypnutí v nastavení Fotoalba (Ctrl+Alt+S); záznam o kopírování v `%LOCALAPPDATA%\Fotoalbum\import.log`.
 - Karta se vkládá do **čtečky karet** (disk s písmenem). Fotoaparát připojený kabelem v režimu MTP se nepodporuje; RAW soubory se nekopírují.
 
+### 2.7 Úpravy po prvním testu ve Windows (schváleno 12. 11. 2026)
+Mají přednost před starším textem této specifikace, kde se liší.
+
+**Ikona:** vlastní moderní ikona, motiv **fotka v rámečku s perem** (popisování), barvy aplikace (tmavě zelená + světlá). Platí pro okno, lištu, plochu i ikonu u hodin.
+
+**Druh složky – „Dovolená“ / běžné:**
+- Druh se nastavuje **jen celé složce**, ne jednotlivým fotkám (z menu Více mizí „Označit jako cestovní/běžnou“).
+- Štítek ve stromu i přepínači se jmenuje **„Dovolená“**; běžné složky **štítek nemají**.
+- **Výchozí druh je běžná** (i pro složky vytvořené kopírováním z karty, např. „2026 léto“); dovolenou označí uživatel.
+- Složka dovolené je na stejné úrovni jako sezónní složky, např. „2025 Turecko“ vedle „2025 léto“.
+- Filtr **„Ukázat jen dovolené“** schová ve stromu běžné složky; uvnitř složky se podle druhu nefiltruje.
+- *Smíšená karta* (běžné fotky → dovolená → běžné): zatím se nepředpokládá. Návrh řešení na později: v Pracovně „Přesunout vybrané fotky do nové dovolené“ (rozsah od–do → nová složka např. „2025 Turecko“, označená jako Dovolená).
+
+**Ukládání a Zpět:**
+- Psaní se **neukládá průběžně** a jednotlivá slova nejsou kroky historie. Popisek se uloží **při kliknutí na jakékoli jiné tlačítko** (Další, Předchozí, jiná fotka/složka, Bez popisku, zavření…).
+- **Zpět / Znovu** vrací celé akce: přechod na jinou fotku, uložený popisek (celý text najednou), Bez popisku, otočení, označení ke smazání, přepsání textu AI korekturou (etapa 2).
+  Příklad: napíšu text → Další → *Zpět* vrátí na předchozí fotku → *Zpět* smaže celý napsaný text.
+- Historie platí **jen do zavření okna** a **jen v rámci aktuální složky** (nejde přes jinou složku).
+
+**Tlačítko „Bez popisku“:**
+- Je **trvale vidět** mezi hlavními tlačítky (ne ve Více); klik fotku označí a **hned přejde na další**.
+- Má-li fotka popisek, nejdřív se zeptá (ochrana před omylem).
+- Tlačítka rozmístit s dostatečnými mezerami, aby se omylem nekliklo na sousední.
+
+**Smazat popisek:** tlačítko je přímo v rámečku s popiskem.
+
+**Označení ke smazání** (zůstává ve Více):
+- Po označení se **hned přejde na další fotku**.
+- Na označené fotce je jen **klidný nápis přes fotku** „Bude smazána při zavření“ a malý odkaz „vrátit“ – nesmí vypadat jako dialog, který čeká na kliknutí.
+
+**Souhrn při zavření:** místo názvů souborů **malé náhledy** fotek ke smazání a **název alba** u každé.
+
+**Název fotky (nadpis):**
+- Windows zobrazuje popisek v polích *Název* i *Předmět* (čte stejné pole). Nově:
+  - **Název** = krátký nadpis (např. „Západ slunce nad Masai Marou“) – vytvoří AI při korektuře; u ručního textu první věta. Zápis: XMP `dc:title`, `XPTitle`.
+  - **Předmět / Komentáře / popis** = celý popisek (XMP `dc:description`, IPTC `Caption-Abstract`, EXIF `ImageDescription`, `XPSubject`, `XPComment`).
+- Ve Fotoalbu se nadpis zobrazuje **v záhlaví fotky místo názvu souboru JPG**, jakmile existuje.
+- Pozor na limit IPTC (~2000 bajtů ≈ 1000 znaků s diakritikou); delší text zůstává celý v XMP.
+
+**Korektura (etapa 2):**
+- Odchod z fotky s napsaným/nadiktovaným textem bez korektury → dotaz „Odejít bez korektury?“ – **vždy** (i u běžných fotek, bez volby „neptat se“).
+- Fotka s ponechaným ručním textem dostane **vlastní značku „jen ruční text“** (miniatura i pruh postupu); je to povolený stav.
+
+**Servisní složky ve složce s fotkami** (ve stromu se nezobrazují):
+- databáze a zálohy: **„Fotoalbum – databáze (nemazat)“** (dříve `_fotoalbum`),
+- originály před odstraněním vepsaného textu (etapa 4): **„Fotoalbum – originály (nemazat)“** (dříve `_originaly`).
+
+**Ověřeno uživatelem:** zápis popisků do fotek (ExifTool OK), ikona u hodin, kopírování z karty, ostatní funkce etapy 1.
+
 ## 3. Diktování a AI
 
 ### 3.1 Dvě vrstvy textu u každé fotky
