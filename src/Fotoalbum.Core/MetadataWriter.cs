@@ -67,7 +67,7 @@ public sealed class MetadataWriter : IDisposable
             if (!File.Exists(full)) return;
             try
             {
-                exif.WriteCaption(full, rec.Caption);
+                exif.WriteCaption(full, rec.Caption, rec.Title);
                 var fi = new FileInfo(full);
                 _db.MarkWritten(path, rec.Caption, fi.Length, fi.LastWriteTimeUtc.Ticks);
             }

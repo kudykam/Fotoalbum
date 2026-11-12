@@ -9,6 +9,11 @@ for (var i = 0; i < args.Length - 1; i++)
     if (args[i] == "--url") options.Url = args[i + 1];
 }
 
+if (Environment.GetEnvironmentVariable("FOTOALBUM_FAKE_AI") == "1")
+{
+    options.AiHandler = new FakeOpenRouterHandler();
+    Console.WriteLine("Pozor: AI je jen náhradní (FOTOALBUM_FAKE_AI=1), nic se neposílá na internet.");
+}
 await using var server = await ServerHost.StartAsync(options);
 var quit = new TaskCompletionSource();
 server.QuitRequested += () => quit.TrySetResult();

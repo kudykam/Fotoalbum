@@ -60,7 +60,9 @@ function draftSave(path, text) { try { localStorage.setItem(DRAFT_KEY, JSON.stri
 function draftClear() { try { localStorage.removeItem(DRAFT_KEY); } catch { } }
 function draftGet() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; } }
 const isDirty = () => !!S.cur && $("ta").value !== S.saved;
-const handled = p => p.status === "done" || p.status === "skip";
+const handled = p => p.status === "done" || p.status === "manual" || p.status === "skip";
+/** Stav popisku pro historii Zpět/Znovu: text, původ (ai/manual/file) a nadpis. */
+const snap = p => ({ c: S.saved, s: p.source || "manual", t: p.source === "ai" ? p.title : null });
 
 /* ---------- start a nastavení ---------- */
 async function boot() {
@@ -71,6 +73,7 @@ async function boot() {
     document.body.innerHTML = `<div class="setup"><div class="card"><h1>Fotoalbum</h1><p>${esc(e.message)}</p></div></div>`;
     return;
   }
+  await loadAi();
   if (!S.state.configured) return showSetup(true);
   $("setup").hidden = true; $("work").hidden = false;
   await loadTree();
@@ -94,6 +97,7 @@ function showSetup(first) {
       ? `Zápis popisků do fotek je připravený (ExifTool ${esc(st.exifToolVersion || "")}).`
       : "Chybí program ExifTool, bez něj se popisky nezapíší do fotek (ukládají se jen v aplikaci). Umístěte <b>exiftool.exe</b> do složky <b>exiftool</b> vedle aplikace."}</div>
     <label class="toggle" style="font-weight:400"><input type="checkbox" id="autoImp" ${st.autoImport ? "checked" : ""}> Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky a videa (do složek „rok + roční období“, např. „2026 léto“)</label>
+    ${first ? "" : aiSection()}
     ${first ? "" : updatesSection()}
     ${first ? "" : `<p style="font-size:15px">Data aplikace (databáze, náhledy) jsou v profilu uživatele. Záloha databáze se ukládá do složky <b>Fotoalbum – databáze (nemazat)</b> ve složce s fotkami.</p>`}
   </div>`;
@@ -108,6 +112,7 @@ function showSetup(first) {
     } catch (e) { fail(e); }
   };
   if (!first) $("back").onclick = () => { el.hidden = true; $("work").hidden = false; };
+  if (!first) wireAiSection();
   if (!first && S.app && S.app.installed) {
     document.querySelectorAll("[name=chan]").forEach(r => r.onchange = async () => {
       setUpdMsg("Přepínám kanál a hledám verzi…");
@@ -217,7 +222,7 @@ async function refreshFolderMeta() {
 
 /* ---------- složka a fotky ---------- */
 async function openFolder(path, initial) {
-  if (!initial) { await commit(); closeMenu(); }
+  if (!initial) { if (!(await guardLeave())) return; await commit(); closeMenu(); }
   if (S.cur) api("POST", "/api/photo/leave", { folder: S.folder, path: S.cur.path }).catch(() => {});
   S.folder = path; expandTo(path); renderTree();
   S.hist = []; S.hi = 0; S.keep.clear();
@@ -253,7 +258,9 @@ async function applyAction(a, backwards) {
     case "caption": {
       const p = byPath(a.path); if (!p) break;
       if (S.cur !== p) await showPhoto(p);
-      await saveCaption(p, backwards ? a.before : a.after);
+      const v = backwards ? a.before : a.after;
+      const st = typeof v === "string" ? { c: v, s: "manual" } : v;
+      await saveCaption(p, st.c, st.s, st.t);
       $("ta").value = S.saved; break;
     }
     case "flags": {
@@ -285,8 +292,8 @@ async function run(fn) {
 }
 
 /* ---------- ukládání popisku ---------- */
-async function saveCaption(p, text) {
-  const d = await api("PUT", "/api/photo/caption", { path: p.path, caption: text, isDraft: false });
+async function saveCaption(p, text, source, title) {
+  const d = await api("PUT", "/api/photo/caption", { path: p.path, caption: text, isDraft: false, source: source || "manual", title: title || null });
   Object.assign(p, d);
   if (S.cur === p) S.saved = d.caption;
   if (S.fUndone && handled(p)) S.keep.add(p.path);
@@ -296,10 +303,10 @@ async function saveCaption(p, text) {
 /** Uloží rozepsaný text aktuální fotky (volá se před každou akcí) a zapíše to do historie jako jeden krok. */
 async function commit() {
   const p = S.cur; if (!p || !isDirty()) return;
-  const before = S.saved, text = $("ta").value;
-  await saveCaption(p, text);
+  const before = snap(p), text = $("ta").value;
+  await saveCaption(p, text, "manual");
   draftClear();
-  record({ t: "caption", path: p.path, before, after: S.saved });
+  record({ t: "caption", path: p.path, before, after: { c: S.saved, s: "manual" } });
 }
 let pollT;
 function pollWrite(p) {
@@ -319,7 +326,7 @@ async function updatePending() {
 async function showPhoto(p) {
   if (!p || p === S.cur) { renderAll(false); return; }
   const prev = S.cur;
-  S.cur = p; S.saved = p.caption;
+  S.cur = p; S.saved = p.caption; S.fixText = "";
   if (prev) api("POST", "/api/photo/leave", { folder: S.folder, path: prev.path }).catch(() => {});
   api("POST", "/api/photo/position", { folder: S.folder, path: p.path }).catch(() => {});
   renderAll(true);
@@ -328,6 +335,7 @@ async function showPhoto(p) {
 async function go(p) {
   if (!p || p === S.cur || S.busy) return;
   closeMenu();
+  if (!(await guardLeave())) return;
   await run(async () => {
     await commit();
     const from = S.cur;
@@ -347,7 +355,7 @@ function nextUndone() {
 function renderAll(newPhoto) { renderStrip(); renderStage(newPhoto); renderCaption(newPhoto); renderButtons(); }
 
 let stripKey = "", stripMap = new Map(), io = null;
-function badgeFor(st) { return { done: ["done", "✓"], draft: ["draft", "✎"], skip: ["skip", "–"], del: ["del", "✕"] }[st] || ["", ""]; }
+function badgeFor(st) { return { done: ["done", "✓"], manual: ["manual", "✍"], draft: ["draft", "✎"], skip: ["skip", "–"], del: ["del", "✕"] }[st] || ["", ""]; }
 function renderStrip() {
   const el = $("strip"), v = visible(), p = cur();
   const key = S.folder + "|" + S.fUndone + "|" + v.map(x => x.path).join("|").length + "|" + v.length;
@@ -382,7 +390,7 @@ function drawTrack() {
   const dpr = window.devicePixelRatio || 1; cv.width = w * dpr; cv.height = 22 * dpr;
   const c = cv.getContext("2d"); c.scale(dpr, dpr);
   const cs = getComputedStyle(document.documentElement);
-  const col = { done: "--accent", draft: "--warn", skip: "--skip", none: "--line", del: "--rec" };
+  const col = { done: "--accent", manual: "--manual", draft: "--warn", skip: "--skip", none: "--line", del: "--rec" };
   const n = v.length; if (!n) return; const sw = w / n;
   v.forEach((ph, i) => { c.fillStyle = cs.getPropertyValue(col[ph.status]).trim(); c.fillRect(i * sw, 4, Math.max(sw - (sw > 4 ? 1 : 0), 1), 14); });
   const i = v.indexOf(p); if (i >= 0) { c.fillStyle = cs.getPropertyValue("--ink").trim(); c.fillRect(i * sw + sw / 2 - 1.5, 0, 3, 22); }
@@ -396,7 +404,7 @@ function renderStage(newPhoto) {
   const p = cur(), st = $("stage"), img = $("photo");
   st.querySelectorAll(".delband,.empty").forEach(n => n.remove());
   const stEl = $("state");
-  const stInfo = p ? ({ done: ["done", "✓ Popsáno"], draft: ["draft", "✎ Rozepsáno"], skip: ["skip", "– Bez popisku"], del: ["del", "✕ Ke smazání"] })[p.status] : null;
+  const stInfo = p ? ({ done: ["done", "✓ Popsáno"], manual: ["manual", "✍ Jen ruční text"], draft: ["draft", "✎ Rozepsáno"], skip: ["skip", "– Bez popisku"], del: ["del", "✕ Ke smazání"] })[p.status] : null;
   stEl.className = "state " + (stInfo ? stInfo[0] : ""); stEl.textContent = stInfo ? stInfo[1] : "";
   if (!p) {
     img.hidden = true; $("meta").innerHTML = "";
@@ -438,8 +446,13 @@ function renderCaption(newPhoto) {
   const dirty = isDirty();
   const st = !p ? "none" : dirty ? (ta.value.trim() ? "edit" : "none") : p.status;
   const m = $("mode");
-  m.className = "mode " + ({ done: "done", edit: "draft", draft: "draft" }[st] || "");
-  m.textContent = { done: "Popisek", edit: "Píšete", draft: "Rozepsáno", skip: "Bez popisku", del: "Ke smazání" }[st] || "Prázdný popisek";
+  m.className = "mode " + ({ done: "done", manual: "manual", edit: "draft", draft: "draft" }[st] || "");
+  m.textContent = { done: p && p.source === "ai" ? "Popisek (po korektuře)" : "Popisek", manual: "Jen ruční text", edit: "Píšete", draft: "Rozepsáno", skip: "Bez popisku", del: "Ke smazání" }[st] || "Prázdný popisek";
+  $("fix").hidden = !S.fixText; $("fixT").textContent = S.fixText || "";
+  const rb = $("recbar");
+  rb.hidden = !(R.on || R.pending);
+  rb.textContent = R.on ? `● Nahrávám ${fmtTime(performance.now() - R.started)} – mluvte, text se objeví po větách${R.pending ? " (přepisuji…)" : ""}` : R.pending ? "Přepisuji poslední větu…" : "";
+  $("busyBar").hidden = !S.aiWorking;
   ta.placeholder = p && p.status === "skip" ? "Fotka je označená „bez popisku“. Když začnete psát, značka zmizí." : "Napište, co je na fotce.";
   const s = $("save");
   const ok = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg>';
@@ -461,7 +474,16 @@ function renderButtons() {
   $("undo").disabled = lock || !(isDirty() || S.hi > 0);
   $("redo").disabled = lock || isDirty() || S.hi >= S.hist.length;
   $("more").disabled = lock;
-  $("clear").disabled = lock || p.status === "del" || !$("ta").value;
+  $("clear").disabled = lock || p.status === "del" || !$("ta").value || R.on;
+  // diktování a korektura (jen se zadaným klíčem AI)
+  $("aiRow").hidden = !(S.ai && S.ai.hasKey);
+  const fixMode = p && p.source === "ai" && !isDirty() && S.saved.trim();
+  $("mic").classList.toggle("on", R.on);
+  $("mic").disabled = !p || p.status === "del" || (S.busy && !R.on);
+  $("micT").textContent = R.on ? "Zastavit " + fmtTime(performance.now() - R.started) : fixMode ? "Diktovat úpravu" : "Diktovat";
+  $("ai").disabled = lock || R.on || R.pending > 0 || !($("ta").value.trim() || S.fixText);
+  $("aiT").textContent = S.aiWorking ? "Upravuji…" : S.fixText ? "Použít úpravu" : "Korektura";
+  if (R.on) { $("prev").disabled = $("next").disabled = $("skip").disabled = $("undo").disabled = $("redo").disabled = true; }
 }
 
 /* ---------- akce na fotce ---------- */
@@ -494,9 +516,9 @@ function skipPhoto() {
     async a => {
       if (a !== "yes") return;
       await run(async () => {
-        const before = S.saved;
+        const before = snap(p);
         await saveCaption(p, "");
-        $("ta").value = ""; draftClear();
+        $("ta").value = ""; draftClear(); S.fixText = "";
         Object.assign(p, await api("POST", "/api/photo/flags", { path: p.path, skip: true }));
         record({ t: "multi", list: [{ t: "caption", path: p.path, before, after: "" }, { t: "flags", path: p.path, before: { skip: false }, after: { skip: true } }] });
         await advance();
@@ -516,7 +538,7 @@ async function clearCaption() {
   const p = S.cur; if (!p || !$("ta").value || S.busy) return;
   await run(async () => {
     // i neuložený (právě napsaný) text jde tlačítkem Zpět vrátit
-    const before = $("ta").value;
+    const before = isDirty() ? { c: $("ta").value, s: "manual" } : snap(p);
     await saveCaption(p, "");
     $("ta").value = ""; draftClear();
     record({ t: "caption", path: p.path, before, after: "" });
@@ -533,9 +555,186 @@ function openMenu() {
 }
 function closeMenu() { if (!S.menu) return; S.menu = false; $("menu").hidden = true; $("more").setAttribute("aria-expanded", "false"); }
 
+/* ---------- diktování a korektura (specifikace 3) ---------- */
+const R = { on: false, stream: null, ctx: null, proc: null, buf: [], len: 0, voiced: false, lastVoice: 0, started: 0, timer: null, queue: Promise.resolve(), pending: 0, mode: "append", target: null };
+function fmtTime(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+
+async function loadAi() { try { S.ai = await api("GET", "/api/ai"); } catch { S.ai = null; } renderButtons(); }
+
+async function recStart() {
+  const p = S.cur; if (!p || R.on || S.busy) return;
+  try { R.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } }); }
+  catch { toast("Mikrofon není dostupný. Je připojený a povolený?", null, 6000); return; }
+  R.mode = p.source === "ai" && !isDirty() && S.saved.trim() ? "fix" : "append";
+  if (R.mode === "fix") S.fixText = "";
+  R.target = p; R.on = true; R.buf = []; R.len = 0; R.voiced = false; R.started = R.lastVoice = performance.now();
+  R.ctx = new AudioContext();
+  const src = R.ctx.createMediaStreamSource(R.stream);
+  R.proc = R.ctx.createScriptProcessor(4096, 1, 1);
+  R.proc.onaudioprocess = e => onAudio(e.inputBuffer.getChannelData(0));
+  src.connect(R.proc); R.proc.connect(R.ctx.destination);
+  // pojistka: po minutě ticha (nebo po 10 minutách) se nahrávání zastaví samo
+  R.timer = setInterval(() => {
+    const now = performance.now();
+    if (now - R.lastVoice > 60000 || now - R.started > 600000) recStop(); else { renderCaption(false); renderButtons(); }
+  }, 500);
+  renderAll(false);
+}
+function onAudio(d) {
+  if (!R.on) return;
+  const copy = new Float32Array(d);
+  let sum = 0; for (let i = 0; i < copy.length; i++) sum += copy[i] * copy[i];
+  const now = performance.now();
+  if (Math.sqrt(sum / copy.length) > 0.012) { R.lastVoice = now; R.voiced = true; }
+  R.buf.push(copy); R.len += copy.length;
+  const sec = R.len / R.ctx.sampleRate;
+  // úsek se odešle v pauze řeči (nebo nejpozději po 12 s), aby se nedělila slova
+  if ((sec >= 3 && now - R.lastVoice > 700) || sec >= 12) flushSegment();
+}
+function flushSegment() {
+  if (!R.len) return;
+  const chunks = R.buf, len = R.len, voiced = R.voiced, rate = R.ctx.sampleRate, target = R.target, mode = R.mode;
+  R.buf = []; R.len = 0; R.voiced = false;
+  if (!voiced) return; // ticho se neposílá
+  const wav = encodeWav(chunks, len, rate);
+  R.pending++; renderCaption(false); renderButtons();
+  R.queue = R.queue.then(async () => {
+    try {
+      const prev = mode === "fix" ? (S.fixText || "") : $("ta").value;
+      const r = await api("POST", "/api/ai/transcribe", { audio: wav, previous: prev });
+      if (r.text && S.cur === target) appendDictation(r.text, mode);
+    } catch (e) { fail(e); }
+    finally { R.pending--; renderCaption(false); renderButtons(); }
+  });
+}
+function appendDictation(text, mode) {
+  if (mode === "fix") S.fixText = (S.fixText ? S.fixText + " " : "") + text;
+  else {
+    const ta = $("ta");
+    ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, "") + " " : "") + text;
+    draftSave(S.cur.path, ta.value);
+  }
+  renderCaption(false); renderButtons();
+}
+async function recStop() {
+  if (!R.on) return;
+  R.on = false; clearInterval(R.timer);
+  flushSegment();
+  try { R.proc.disconnect(); } catch { }
+  R.stream.getTracks().forEach(t => t.stop());
+  try { await R.ctx.close(); } catch { }
+  renderAll(false);
+  await R.queue;
+  if (R.mode === "fix" && S.fixText) toast("Pokyn k úpravě je připravený. Stiskněte Použít úpravu.", null, 4000);
+}
+/** Zvuk → WAV 16 kHz mono 16 bit → base64. */
+function encodeWav(chunks, len, rate) {
+  const target = 16000, ratio = rate / target, outLen = Math.floor(len / ratio);
+  const data = new Float32Array(len); let o = 0; for (const c of chunks) { data.set(c, o); o += c.length; }
+  const buf = new ArrayBuffer(44 + outLen * 2), v = new DataView(buf);
+  const w = (p, s) => { for (let i = 0; i < s.length; i++) v.setUint8(p + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + outLen * 2, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, target, true); v.setUint32(28, target * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, outLen * 2, true);
+  for (let i = 0; i < outLen; i++) {
+    const a = Math.floor(i * ratio), b = Math.min(len, Math.floor((i + 1) * ratio));
+    let s = 0; for (let j = a; j < b; j++) s += data[j]; s /= Math.max(1, b - a);
+    v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, s)) * 0x7fff, true);
+  }
+  const bytes = new Uint8Array(buf); let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+/** ✨ Korektura: z diktátu udělá pěkný popisek, nebo použije nadiktovaný pokyn k úpravě. Zpět vrátí původní text. */
+async function improveCaption() {
+  const p = S.cur; if (!p || S.busy || R.on) return;
+  const typed = $("ta").value, fix = !!S.fixText;
+  if (!fix && !typed.trim()) { toast("Nejdřív nadiktujte nebo napište, co je na fotce."); return; }
+  S.aiWorking = true; renderCaption(false);
+  await run(async () => {
+    try {
+      const before = isDirty() ? { c: typed, s: "manual" } : snap(p);
+      const r = fix ? await api("POST", "/api/ai/fix", { path: p.path, caption: typed, instruction: S.fixText })
+        : await api("POST", "/api/ai/improve", { path: p.path, dictation: typed });
+      await saveCaption(p, r.caption, "ai", r.title);
+      $("ta").value = S.saved; draftClear(); S.fixText = "";
+      record({ t: "caption", path: p.path, before, after: { c: r.caption, s: "ai", t: r.title } });
+    } finally { S.aiWorking = false; }
+  });
+}
+/** Před odchodem z fotky: text bez korektury → zeptat se (specifikace 2.7). Vrací true = lze pokračovat. */
+function guardLeave() {
+  return new Promise(async resolve => {
+    if (R.on) await recStop();
+    if (R.pending) await R.queue;
+    const p = S.cur;
+    if (!p || !S.ai || !S.ai.hasKey) return resolve(true);
+    const text = $("ta").value.trim();
+    if (!S.fixText && !(isDirty() && text)) return resolve(true);
+    const fix = !!S.fixText;
+    modal(`<h3>${fix ? "Úprava ještě nebyla použita" : "Text ještě neprošel korekturou"}</h3>
+      <p>${fix ? "Nadiktovaný pokyn k úpravě se zatím nepoužil." : "Chcete z něj nejdřív nechat udělat pěkný popisek?"}</p>
+      <div class="col"><button class="b solid" data-a="ai">${fix ? "Použít úpravu" : "Udělat korekturu"}</button>
+      <button class="b" data-a="leave">${fix ? "Nechat popisek beze změny" : "Ponechat jen ruční text"} a pokračovat</button>
+      <button class="b" data-a="stay">Zůstat u této fotky</button></div>`,
+      async a => {
+        if (a === "ai") { await improveCaption(); resolve(false); }
+        else if (a === "leave") { S.fixText = ""; resolve(true); }
+        else resolve(false);
+      });
+  });
+}
+
+/* ---------- nastavení AI (správce) ---------- */
+function aiSection() {
+  const a = S.ai || {};
+  return `<h2>Diktování a korektura (AI přes OpenRouter)</h2>
+    <p>Klíč se ukládá šifrovaně jen v tomto počítači. Do cloudu jde jen zvuk diktátu a text, nikdy fotky.</p>
+    <label>Klíč OpenRouter <input type="text" id="aiKey" autocomplete="off" placeholder="${a.hasKey ? "zadán (" + esc(a.keyHint || "") + ") – nový klíč přepíše starý" : "sk-or-…"}"></label>
+    <div class="row"><button class="b small solid" id="aiKeySave">Uložit klíč</button>${a.hasKey ? `<button class="b small" id="aiKeyDel">Odebrat klíč</button>` : ""}</div>
+    <label>Model pro korekturu <select id="aiText"><option value="">Výchozí (${esc(a.defaultTextModel || "")})</option></select></label>
+    <label>Model pro přepis řeči <select id="aiAudio"><option value="">Automaticky (nejvhodnější dostupný)</option></select></label>
+    <label>Slovníček jmen a míst <textarea id="aiGloss" rows="3" placeholder="např. Jarka, strýc Pepa, Ngorongoro, Masai Mara, Kilimandžáro">${esc(a.glossary || "")}</textarea></label>
+    <div class="channels"><b>Délka popisku</b>
+      ${[["kratky", "Krátký (jedna věta)"], ["stredni", "Střední (1–3 věty)"], ["delsi", "Delší (3–5 vět)"]].map(([v, l]) =>
+        `<label class="toggle" style="font-weight:400"><input type="radio" name="aiLen" value="${v}" ${a.captionLength === v ? "checked" : ""}> ${l}</label>`).join("")}</div>
+    <div class="row"><button class="b small solid" id="aiSave">Uložit nastavení AI</button></div>
+    <p>Zatím utraceno za AI: <b>${(a.costUsd || 0).toFixed(3)} $</b></p>`;
+}
+async function wireAiSection() {
+  const a = S.ai || {};
+  const saveAi = async body => { S.ai = await api("POST", "/api/ai/settings", body); renderButtons(); };
+  $("aiKeySave").onclick = async () => {
+    const k = $("aiKey").value.trim(); if (!k) { toast("Vložte klíč OpenRouter."); return; }
+    try { await saveAi({ key: k }); toast("Klíč je uložený."); openSettings(); } catch (e) { fail(e); }
+  };
+  if ($("aiKeyDel")) $("aiKeyDel").onclick = async () => { try { await saveAi({ key: "" }); toast("Klíč je odebraný."); openSettings(); } catch (e) { fail(e); } };
+  $("aiSave").onclick = async () => {
+    const len = document.querySelector("[name=aiLen]:checked");
+    try {
+      await saveAi({ textModel: $("aiText").value, audioModel: $("aiAudio").value, glossary: $("aiGloss").value, captionLength: len ? len.value : null });
+      toast("Nastavení AI je uložené.");
+    } catch (e) { fail(e); }
+  };
+  try {
+    const m = await api("GET", "/api/ai/models");
+    const fill = (sel, list, chosen) => {
+      for (const x of list) {
+        const o = document.createElement("option"); o.value = x.id;
+        o.textContent = `${x.name}${x.completionPricePerM != null ? ` – ${x.promptPricePerM.toFixed(2)} / ${x.completionPricePerM.toFixed(2)} $ za 1M tokenů` : ""}`;
+        sel.append(o);
+      }
+      if (chosen && ![...sel.options].some(o => o.value === chosen)) { const o = document.createElement("option"); o.value = o.textContent = chosen; sel.append(o); }
+      sel.value = chosen || "";
+    };
+    fill($("aiText"), m.text, a.textModel); fill($("aiAudio"), m.audio, a.audioModel);
+  } catch { toast("Seznam modelů se nepodařilo načíst (není připojení k internetu?).", null, 5000); }
+}
+
 /* ---------- zavření programu ---------- */
 async function requestClose() {
   try {
+    if (!(await guardLeave())) return;
     await commit();
     const marked = S.state && S.state.configured ? await api("GET", "/api/trash") : [];
     if (!marked.length) return quit(null);
@@ -564,6 +763,7 @@ async function quit(moveToBin) {
 /** Skryté nastavení pro správce (Ctrl+Alt+S nebo menu ikony u hodin). */
 async function openSettings() {
   try { const r = await api("GET", "/api/state"); S.state = r.state; renderApp(r.app); } catch { }
+  try { S.ai = await api("GET", "/api/ai"); } catch { }
   closeMenu(); $("modalHost").innerHTML = "";
   showSetup(false);
 }
@@ -578,6 +778,8 @@ window.fotoalbum = {
 $("prev").onclick = $("pL").onclick = () => step(-1);
 $("next").onclick = $("pR").onclick = () => step(1);
 $("skip").onclick = skipPhoto;
+$("mic").onclick = () => R.on ? recStop() : recStart();
+$("ai").onclick = improveCaption;
 $("nextUndone").onclick = nextUndone;
 $("undo").onclick = undo;
 $("redo").onclick = redo;
@@ -601,6 +803,7 @@ document.addEventListener("keydown", e => {
   // Ctrl+Alt+S – na české klávesnici je Ctrl+Alt = AltGr a e.key je „đ“, proto podle fyzické klávesy
   if (e.ctrlKey && e.altKey && e.code === "KeyS") { e.preventDefault(); openSettings(); return; }
   if ($("work").hidden) return;
+  if (e.key === "F2") { e.preventDefault(); if (S.ai && S.ai.hasKey) (R.on ? recStop() : recStart()); return; }
   if (e.key === "PageUp") { e.preventDefault(); step(-1); return; }
   if (e.key === "PageDown") { e.preventDefault(); step(1); return; }
   if (/TEXTAREA|INPUT|SELECT/.test(e.target.tagName)) return;

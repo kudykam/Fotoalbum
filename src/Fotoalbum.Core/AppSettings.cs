@@ -19,6 +19,21 @@ public sealed class AppSettings
 
     /// <summary>Kanál aktualizací: „stable“ (výchozí, schválené verze) nebo „test“ (jen pro správce).</summary>
     public string UpdateChannel { get; set; } = "stable";
+
+    /// <summary>Model OpenRouteru pro korekturu (prázdné = výchozí Claude Haiku 5.5).</summary>
+    public string? AiTextModel { get; set; }
+
+    /// <summary>Model OpenRouteru pro přepis řeči (prázdné = první vhodný dostupný).</summary>
+    public string? AiAudioModel { get; set; }
+
+    /// <summary>Slovníček jmen a míst pro přepis i korekturu (např. „Jarka, Ngorongoro, Masai Mara“).</summary>
+    public string? Glossary { get; set; }
+
+    /// <summary>Délka popisku: kratky / stredni / delsi.</summary>
+    public string CaptionLength { get; set; } = "stredni";
+
+    /// <summary>Kolik zatím stála AI (USD, podle OpenRouteru).</summary>
+    public double AiCostUsd { get; set; }
 }
 
 /// <summary>Umístění dat aplikace mimo složku s fotkami.</summary>

@@ -14,6 +14,10 @@ public sealed class ServerOptions
     public Func<string, IRecycleBin>? RecycleBinFactory { get; set; }
     /// <summary>Výběr složky dialogem Windows (jen v desktopové aplikaci).</summary>
     public Func<Task<string?>>? PickFolder { get; set; }
+    /// <summary>Úložiště klíče AI (Windows: DPAPI). Prázdné = soubor v datech aplikace (vývoj).</summary>
+    public Fotoalbum.Core.Ai.ISecretStore? Secrets { get; set; }
+    /// <summary>Náhradní odpovědi AI pro testy (FOTOALBUM_FAKE_AI=1).</summary>
+    public HttpMessageHandler? AiHandler { get; set; }
     /// <summary>Jméno hostitele zobrazené v rozhraní („pc“ = Windows aplikace, „web“ = prohlížeč).</summary>
     public string HostKind { get; set; } = "web";
     /// <summary>Aktualizace (jen Windows aplikace).</summary>
@@ -69,7 +73,8 @@ public static class ServerHost
     public static async Task<RunningServer> StartAsync(ServerOptions options)
     {
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
-        var service = new FotoalbumService(new AppPaths(options.DataDir), options.RecycleBinFactory);
+        var service = new FotoalbumService(new AppPaths(options.DataDir), options.RecycleBinFactory,
+            secrets: options.Secrets, aiHandler: options.AiHandler);
 
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseUrls(options.Url);
@@ -102,6 +107,7 @@ public static class ServerHost
                     UnauthorizedAccessException => 403,
                     FileNotFoundException or DirectoryNotFoundException => 404,
                     InvalidOperationException => 409,
+                    Fotoalbum.Core.Ai.AiException => 503,
                     ArgumentException or JsonException or BadHttpRequestException => 400,
                     _ => 500,
                 };
@@ -164,7 +170,7 @@ public static class ServerHost
         api.MapPost("/folder/kind", (FolderKindRequest r) => { s.SetFolderKind(r.Path, r.Kind); return Results.Ok(); });
 
         api.MapGet("/photo", (string path) => Results.Json(s.GetPhoto(path)));
-        api.MapPut("/photo/caption", (CaptionRequest r) => Results.Json(s.SaveCaption(r.Path, r.Caption ?? "", r.IsDraft)));
+        api.MapPut("/photo/caption", (CaptionRequest r) => Results.Json(s.SaveCaption(r.Path, r.Caption ?? "", r.IsDraft, r.Source, r.Title)));
         api.MapPost("/photo/flags", (FlagsRequest r) =>
             Results.Json(s.SetFlags(r.Path, r.Skip, r.MarkedDelete, r.Rotation)));
         api.MapPost("/photo/leave", (PositionRequest r) => { s.Leave(r.Folder, r.Path); return Results.Ok(); });
@@ -186,6 +192,39 @@ public static class ServerHost
 
         api.MapGet("/trash", () => Results.Json(s.MarkedForDelete()));
 
+        // ---------- AI: diktování a korektura (specifikace 3) ----------
+        api.MapGet("/ai", () => Results.Json(s.AiStatus()));
+        api.MapPost("/ai/settings", (AiSettingsRequest r) =>
+        {
+            s.ConfigureAi(r.Key, r.TextModel, r.AudioModel, r.Glossary, r.CaptionLength);
+            return Results.Json(s.AiStatus());
+        });
+        api.MapGet("/ai/models", async (CancellationToken ct) =>
+        {
+            var all = await s.Ai.ListModelsAsync(ct);
+            var text = all.Where(m => !m.Audio || m.Id.StartsWith("google/", StringComparison.Ordinal))
+                .Where(m => m.Id.StartsWith("anthropic/claude", StringComparison.Ordinal) || m.Id.StartsWith("google/gemini", StringComparison.Ordinal)
+                    || m.Id.StartsWith("openai/gpt", StringComparison.Ordinal) || m.Id.StartsWith("mistralai/", StringComparison.Ordinal))
+                .OrderBy(m => m.CompletionPricePerM ?? 999).Take(60).ToList();
+            var audio = all.Where(m => m.Audio).OrderBy(m => m.PromptPricePerM ?? 999).ToList();
+            return Results.Json(new { text, audio });
+        });
+        api.MapPost("/ai/transcribe", async (TranscribeRequest r, CancellationToken ct) =>
+        {
+            if (string.IsNullOrEmpty(r.Audio) || r.Audio.Length > 20_000_000) throw new ArgumentException("Neplatná nahrávka.");
+            return Results.Json(new { text = await s.Ai.TranscribeAsync(r.Audio, r.Previous ?? "", ct) });
+        });
+        api.MapPost("/ai/improve", async (ImproveRequest r, CancellationToken ct) =>
+        {
+            var res = await s.Ai.ImproveAsync(r.Dictation ?? "", s.ContextFor(r.Path), ct);
+            return Results.Json(new { caption = res.Caption, title = res.Title, cost = res.CostUsd });
+        });
+        api.MapPost("/ai/fix", async (FixRequest r, CancellationToken ct) =>
+        {
+            var res = await s.Ai.FixAsync(r.Caption ?? "", r.Instruction ?? "", s.ContextFor(r.Path), ct);
+            return Results.Json(new { caption = res.Caption, title = res.Title, cost = res.CostUsd });
+        });
+
         // Zavření programu: rozhraní nejdřív ukáže souhrn fotek ke smazání, pak pošle rozhodnutí.
         api.MapPost("/quit", (QuitRequest r) =>
         {
@@ -199,9 +238,13 @@ public static class ServerHost
 }
 
 public sealed record ChannelRequest(string Channel);
+public sealed record AiSettingsRequest(string? Key, string? TextModel, string? AudioModel, string? Glossary, string? CaptionLength);
+public sealed record TranscribeRequest(string Audio, string? Previous);
+public sealed record ImproveRequest(string Path, string? Dictation);
+public sealed record FixRequest(string Path, string? Caption, string? Instruction);
 public sealed record SettingsRequest(string? PhotoRoot, string? ExifToolPath, bool? AutoImport);
 public sealed record FolderKindRequest(string Path, string? Kind);
-public sealed record CaptionRequest(string Path, string? Caption, bool IsDraft);
+public sealed record CaptionRequest(string Path, string? Caption, bool IsDraft, string? Source = null, string? Title = null);
 public sealed record FlagsRequest(string Path, bool? Skip, bool? MarkedDelete, int? Rotation);
 public sealed record PositionRequest(string Folder, string Path);
 public sealed record QuitRequest(bool? MoveMarkedToBin);

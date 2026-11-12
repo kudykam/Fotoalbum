@@ -28,7 +28,11 @@ Hotovo:
 Po zasunutí karty z fotoaparátu do čtečky (DCIM/100_PANA…) samo zkopíruje nové fotky a videa do složek „rok období“
 (např. „2026 léto“; „2026 zima“ = prosinec 2026 až únor 2027) a ukáže průběh. Karta se nemění. „Zavřít program“ zavře okno, úplné ukončení je v menu ikony.
 
-Další etapy (diktování, AI, knihovna alb, čtení, tablet, televize) – viz specifikace, kap. „Etapy“.
+**Diktování a korektura (etapa 2):** 🎤 Diktovat (F2) – přepis řeči po větách, ✨ Korektura – pěkný popisek ve stylu cestopisu
+a krátký nadpis, „Diktovat úpravu“ pro hlasové opravy. AI přes OpenRouter, klíč v nastavení správce (Ctrl+Alt+S),
+uložený šifrovaně jen v počítači. Pro vývoj bez internetu: `FOTOALBUM_FAKE_AI=1` (náhradní odpovědi).
+
+Další etapy (knihovna alb, čtení, tablet, televize) – viz specifikace, kap. „Etapy“.
 
 ## Ovládání
 

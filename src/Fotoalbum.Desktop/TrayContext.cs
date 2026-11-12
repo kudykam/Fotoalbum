@@ -74,6 +74,7 @@ internal sealed class TrayContext : ApplicationContext
                 HostKind = "pc",
                 RecycleBinFactory = _ => new WindowsRecycleBin(),
                 PickFolder = PickFolderAsync,
+                Secrets = new DpapiSecretStore(),
             });
             _server.QuitRequested += () => _ui.Post(_ => _window?.CloseConfirmed(), null);
 

@@ -199,10 +199,16 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Kontext pro AI: název složky, datum (EXIF), popisky okolních fotek, slovníček jmen a míst.
 - AI běží **pouze v cloudu**. Bez internetu: jasné upozornění, ruční psaní funguje dál.
 
-### 3.4 Služby (předběžně)
-- Přepis řeči: cloudová streamovací služba s dobrou češtinou (vybere se po testu).
-- Úprava textu a čtení textu z obrázku: Claude (Anthropic API).
-- Odstranění vepsaného textu z obrázku: cloudová služba pro úpravu obrázků (inpainting) – vybere se po testu na ukázkových fotkách.
+### 3.4 Služby (rozhodnuto 12. 11. 2026)
+- Dědův počítač je starší → **přepis řeči i korektura běží online**, přes **OpenRouter** (jeden klíč správce).
+- **Přepis řeči:** nahrávka se posílá po krátkých úsecích (dělí se v pauzách řeči, cca 3–10 s) modelu, který umí zvuk; text naskakuje po větách s malým zpožděním. Model se vybírá v nastavení ze živého seznamu OpenRouteru (modely se vstupem „audio“).
+- **Korektura textu:** výchozí model **Claude Haiku 5.5** (nejlevnější současný Claude; odhad ~0,0003 $ za popisek). Lze přepnout na Claude Sonnet 5.5 (kvalitnější, dražší).
+- AI vrací **popisek** a krátký **nadpis** (Windows „Název“, záhlaví fotky).
+- **Klíč** se zadává ve skrytém nastavení, ukládá se šifrovaně (Windows DPAPI) jen v počítači; rozhraní ho nikdy nezobrazí celý.
+- **Útrata** za AI se sčítá z údajů OpenRouteru a je vidět v nastavení.
+- Do cloudu jde jen zvuk diktátu a text (popisek, název alba, datum, okolní popisky, slovníček) – fotky ne.
+- **Slovníček jmen a míst** (nastavení) se posílá s každým přepisem i korekturou.
+- Bez internetu / bez klíče: diktování a korektura nejsou dostupné, ruční psaní funguje dál.
 
 ## 4. Ukládání
 
@@ -295,7 +301,7 @@ Mají přednost před starším textem této specifikace, kde se liší.
 
 ### Etapy
 1. **MVP – hotovo** (čeká na vyzkoušení ve Windows): strom složek, miniatury, velká fotka, ruční popisek, automatické ukládání do metadat, označení ke smazání, stavy „bez popisku“ a pokračování (2.5), záloha databáze, lokální server + webové rozhraní.
-2. Diktování, ✨ Vylepšit, hlasové opravy, historie verzí v rozhraní, slovníček jmen a míst.
+2. **Diktování a AI – implementováno, čeká na test se skutečným klíčem:** 🎤 Diktovat (přepis po větách), ✨ Korektura, hlasové úpravy („Diktovat úpravu“ → „Použít úpravu“), nadpis od AI, značka „✍ Jen ruční text“, dotaz při odchodu bez korektury, slovníček, délka popisku, útrata; vše vratné tlačítkem Zpět. Klávesa F2 = diktovat.
 3. Knihovna alb (2.1), úvodní texty, vyhledávání.
 4. Staré vepsané popisky: přečtení a odstranění (kap. 7).
 5. Čtecí režim – obě varianty (2.3), „Pustit na televizi“ (2.3.1) a DLNA server pro TV (2.3.2).

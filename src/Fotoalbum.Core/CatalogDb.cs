@@ -2,7 +2,15 @@ using Microsoft.Data.Sqlite;
 
 namespace Fotoalbum.Core;
 
-public enum PhotoStatus { None, Draft, Done, Skip, MarkedDelete }
+public enum PhotoStatus { None, Draft, Done, Manual, Skip, MarkedDelete }
+
+/// <summary>Původ popisku: AI korektura, ruční text bez korektury, nebo převzatý ze souboru.</summary>
+public static class CaptionSource
+{
+    public const string Ai = "ai";
+    public const string Manual = "manual";
+    public const string File = "file";
+}
 
 public sealed class PhotoRecord
 {
@@ -23,10 +31,15 @@ public sealed class PhotoRecord
     /// <summary>Popisek, který je naposledy prokazatelně zapsaný ve fotce.</summary>
     public string? FileCaption { get; set; }
     public string? WriteError { get; set; }
+    /// <summary>Původ popisku (<see cref="Core.CaptionSource"/>).</summary>
+    public string CaptionSource { get; set; } = Core.CaptionSource.File;
+    /// <summary>Krátký nadpis od AI (null = první věta popisku).</summary>
+    public string? Title { get; set; }
 
     public PhotoStatus Status =>
         MarkedDelete ? PhotoStatus.MarkedDelete
-        : Caption.Trim().Length > 0 ? (IsDraft ? PhotoStatus.Draft : PhotoStatus.Done)
+        : Caption.Trim().Length > 0 ? (IsDraft ? PhotoStatus.Draft
+            : CaptionSource == Core.CaptionSource.Manual ? PhotoStatus.Manual : PhotoStatus.Done)
         : RawDictation.Trim().Length > 0 ? PhotoStatus.Draft
         : Skip ? PhotoStatus.Skip
         : PhotoStatus.None;
@@ -43,7 +56,7 @@ public sealed record HistoryEntry(long Id, string Caption, bool IsDraft, string 
 /// </summary>
 public sealed class CatalogDb : IDisposable
 {
-    private const int SchemaVersion = 1;
+    private const int SchemaVersion = 2;
     private static readonly TimeSpan HistoryMergeWindow = TimeSpan.FromSeconds(60);
     private readonly SqliteConnection _db;
     private readonly object _lock = new();
@@ -60,6 +73,18 @@ public sealed class CatalogDb : IDisposable
     {
         var version = Convert.ToInt32(Scalar("PRAGMA user_version"));
         if (version >= SchemaVersion) return;
+        if (version < 1) CreateV1();
+        if (version < 2)
+        {
+            // verze 2: původ popisku (AI / ruční / ze souboru) a nadpis od AI
+            Exec("ALTER TABLE photos ADD COLUMN caption_source TEXT NOT NULL DEFAULT 'file'");
+            Exec("ALTER TABLE photos ADD COLUMN title TEXT NULL");
+        }
+        Exec($"PRAGMA user_version={SchemaVersion}");
+    }
+
+    private void CreateV1()
+    {
         Exec("""
             CREATE TABLE IF NOT EXISTS photos(
               path TEXT PRIMARY KEY COLLATE NOCASE,
@@ -91,7 +116,6 @@ public sealed class CatalogDb : IDisposable
               last_photo TEXT NULL);
             CREATE TABLE IF NOT EXISTS app_state(key TEXT PRIMARY KEY, value TEXT NULL);
             """);
-        Exec($"PRAGMA user_version={SchemaVersion}");
     }
 
     // ---------- fotky ----------
@@ -144,6 +168,8 @@ public sealed class CatalogDb : IDisposable
                 if (userUntouched && !rec.IsDraft && rec.Caption != cleaned)
                 {
                     rec.Caption = cleaned;
+                    rec.CaptionSource = CaptionSource.File;
+                    rec.Title = null;
                     AddHistoryLocked(path, cleaned, false, "soubor", merge: false);
                 }
             }
@@ -156,15 +182,18 @@ public sealed class CatalogDb : IDisposable
         }
     }
 
-    public PhotoRecord SaveCaption(string path, string caption, bool isDraft, string source = "uzivatel")
+    public PhotoRecord SaveCaption(string path, string caption, bool isDraft, string source = "uzivatel",
+        string captionSource = CaptionSource.Manual, string? title = null)
     {
         lock (_lock)
         {
             var rec = GetOrCreate(path);
             caption = caption.Replace("\r\n", "\n").TrimEnd();
-            if (rec.Caption == caption && rec.IsDraft == isDraft) return rec;
+            if (rec.Caption == caption && rec.IsDraft == isDraft && rec.CaptionSource == captionSource && rec.Title == title) return rec;
             rec.Caption = caption;
             rec.IsDraft = isDraft;
+            rec.CaptionSource = captionSource;
+            rec.Title = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
             if (caption.Length > 0) rec.Skip = false;
             Upsert(rec);
             AddHistoryLocked(path, caption, isDraft, source, merge: true);
@@ -365,18 +394,19 @@ public sealed class CatalogDb : IDisposable
     {
         using var cmd = Cmd("""
             INSERT INTO photos(path, caption, is_draft, raw_dictation, skip, marked_delete, rotation, everyday, date_taken,
-                               file_size, file_mtime, imported, file_caption, write_error, updated_at)
-            VALUES($path,$caption,$draft,$raw,$skip,$del,$rot,$every,$date,$size,$mtime,$imp,$fcap,$err,$now)
+                               file_size, file_mtime, imported, file_caption, write_error, updated_at, caption_source, title)
+            VALUES($path,$caption,$draft,$raw,$skip,$del,$rot,$every,$date,$size,$mtime,$imp,$fcap,$err,$now,$src,$title)
             ON CONFLICT(path) DO UPDATE SET caption=$caption, is_draft=$draft, raw_dictation=$raw, skip=$skip,
               marked_delete=$del, rotation=$rot, everyday=$every, date_taken=$date, file_size=$size, file_mtime=$mtime,
-              imported=$imp, file_caption=$fcap, write_error=$err, updated_at=$now
+              imported=$imp, file_caption=$fcap, write_error=$err, updated_at=$now, caption_source=$src, title=$title
             """,
             ("$path", p.Path), ("$caption", p.Caption), ("$draft", p.IsDraft ? 1 : 0), ("$raw", p.RawDictation),
             ("$skip", p.Skip ? 1 : 0), ("$del", p.MarkedDelete ? 1 : 0), ("$rot", p.Rotation),
             ("$every", p.Everyday is null ? DBNull.Value : p.Everyday.Value ? 1 : 0),
             ("$date", (object?)p.DateTaken ?? DBNull.Value), ("$size", p.FileSize), ("$mtime", p.FileMtime),
             ("$imp", p.Imported ? 1 : 0), ("$fcap", (object?)p.FileCaption ?? DBNull.Value),
-            ("$err", (object?)p.WriteError ?? DBNull.Value), ("$now", DateTime.UtcNow.ToString("O")));
+            ("$err", (object?)p.WriteError ?? DBNull.Value), ("$now", DateTime.UtcNow.ToString("O")),
+            ("$src", p.CaptionSource), ("$title", (object?)p.Title ?? DBNull.Value));
         cmd.ExecuteNonQuery();
     }
 
@@ -396,6 +426,8 @@ public sealed class CatalogDb : IDisposable
         Imported = r.GetInt64(r.GetOrdinal("imported")) == 1,
         FileCaption = r.IsDBNull(r.GetOrdinal("file_caption")) ? null : r.GetString(r.GetOrdinal("file_caption")),
         WriteError = r.IsDBNull(r.GetOrdinal("write_error")) ? null : r.GetString(r.GetOrdinal("write_error")),
+        CaptionSource = r.GetString(r.GetOrdinal("caption_source")),
+        Title = r.IsDBNull(r.GetOrdinal("title")) ? null : r.GetString(r.GetOrdinal("title")),
     };
 
     private SqliteCommand Cmd(string sql, params (string Name, object Value)[] ps)

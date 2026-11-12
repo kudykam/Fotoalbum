@@ -1,3 +1,5 @@
+using Fotoalbum.Core.Ai;
+
 namespace Fotoalbum.Core;
 
 public sealed record StateDto(bool Configured, string? Root, string? RootName, bool ExifToolOk, string? ExifToolVersion,
@@ -7,7 +9,7 @@ public sealed record FolderDto(string Path, string Name, string Kind, bool KindI
     List<FolderDto> Children);
 
 public sealed record PhotoDto(string Path, string Name, string? Date, string Status, string Caption, bool IsDraft,
-    int Rotation, bool Vacation, string? Title, bool WritePending, string? WriteError);
+    int Rotation, bool Vacation, string? Title, bool WritePending, string? WriteError, string Source);
 
 public sealed record FolderPhotosDto(string Folder, string? LastPhoto, List<PhotoDto> Photos);
 
@@ -43,10 +45,13 @@ public sealed class FotoalbumService : IDisposable
     private ExifTool? _exif;
     private string? _problem;
 
-    public FotoalbumService(AppPaths paths, Func<string, IRecycleBin>? recycleFactory = null, TimeSpan? writeDelay = null)
+    public FotoalbumService(AppPaths paths, Func<string, IRecycleBin>? recycleFactory = null, TimeSpan? writeDelay = null,
+        ISecretStore? secrets = null, HttpMessageHandler? aiHandler = null)
     {
         _paths = paths;
         _settings = new SettingsStore(paths);
+        Ai = new AiService(aiHandler is null ? new HttpClient() : new HttpClient(aiHandler), secrets ?? new FileSecretStore(paths.DataDir),
+            () => _settings.Current, cost => _settings.Update(s => s.AiCostUsd += cost));
         _recycleFactory = recycleFactory ?? (root => new FolderRecycleBin(root));
         Db = new CatalogDb(paths.CatalogFile);
         Thumbs = new Thumbnails(paths.ThumbDir);
@@ -55,6 +60,7 @@ public sealed class FotoalbumService : IDisposable
     }
 
     public CatalogDb Db { get; }
+    public AiService Ai { get; }
     public Thumbnails Thumbs { get; }
     public MetadataWriter Writer { get; }
     public AppSettings Settings => _settings.Current;
@@ -125,7 +131,7 @@ public sealed class FotoalbumService : IDisposable
                 var st = recs.TryGetValue(p, out var r) ? r.Status : PhotoStatus.None;
                 if (st == PhotoStatus.MarkedDelete) continue;
                 total++;
-                if (st == PhotoStatus.Done) { done++; handled++; }
+                if (st is PhotoStatus.Done or PhotoStatus.Manual) { done++; handled++; }
                 else if (st == PhotoStatus.Skip) handled++;
             }
             return new FolderDto(n.Path, n.Name, kind, own is null, total + children.Sum(c => c.Total),
@@ -194,10 +200,12 @@ public sealed class FotoalbumService : IDisposable
         return ToDto(path, Db.GetPhoto(path), KindOf(ParentOf(path)));
     }
 
-    public PhotoDto SaveCaption(string path, string caption, bool isDraft)
+    /// <param name="source">Původ textu: „manual“ (psaní/diktát bez korektury) nebo „ai“ (po korektuře).</param>
+    public PhotoDto SaveCaption(string path, string caption, bool isDraft, string? source = null, string? title = null)
     {
         EnsurePhoto(path);
-        Db.SaveCaption(path, caption, isDraft);
+        var src = source is CaptionSource.Ai or CaptionSource.File ? source : CaptionSource.Manual;
+        Db.SaveCaption(path, caption, isDraft, captionSource: src, title: src == CaptionSource.Ai ? title : null);
         Writer.Schedule(path);
         return GetPhoto(path);
     }
@@ -227,6 +235,47 @@ public sealed class FotoalbumService : IDisposable
     {
         Library.Resolve(path);
         return Db.GetHistory(path);
+    }
+
+    // ---------- AI (diktování a korektura) ----------
+
+    public sealed record AiStatusDto(bool HasKey, string? KeyHint, string? TextModel, string? AudioModel, string DefaultTextModel,
+        string? Glossary, string CaptionLength, double CostUsd);
+
+    public AiStatusDto AiStatus()
+    {
+        var s = Settings;
+        return new AiStatusDto(Ai.HasKey, Ai.KeyHint, s.AiTextModel, s.AiAudioModel, AiService.DefaultTextModel, s.Glossary, s.CaptionLength, s.AiCostUsd);
+    }
+
+    public void ConfigureAi(string? key, string? textModel, string? audioModel, string? glossary, string? captionLength)
+    {
+        if (key is not null) Ai.SetKey(key);
+        _settings.Update(s =>
+        {
+            if (textModel is not null) s.AiTextModel = textModel.Trim().Length == 0 ? null : textModel.Trim();
+            if (audioModel is not null) s.AiAudioModel = audioModel.Trim().Length == 0 ? null : audioModel.Trim();
+            if (glossary is not null) s.Glossary = glossary.Trim();
+            if (captionLength is "kratky" or "stredni" or "delsi") s.CaptionLength = captionLength;
+        });
+    }
+
+    /// <summary>Kontext pro korekturu: album, datum a popisky sousedních fotek.</summary>
+    public CaptionContext ContextFor(string path)
+    {
+        EnsurePhoto(path);
+        var folder = ParentOf(path);
+        var paths = Library.ListPhotos(folder);
+        var recs = Db.GetPhotos(paths);
+        var ordered = paths.OrderBy(p => recs.GetValueOrDefault(p)?.DateTaken ?? "9999").ThenBy(p => p, StringComparer.CurrentCultureIgnoreCase).ToList();
+        var i = ordered.FindIndex(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
+        var neighbours = new List<string>();
+        foreach (var j in new[] { i - 2, i - 1, i + 1 })
+            if (j >= 0 && j < ordered.Count && j != i && recs.GetValueOrDefault(ordered[j]) is { Caption.Length: > 0, IsDraft: false } r)
+                neighbours.Add(r.Caption);
+        var date = recs.GetValueOrDefault(path)?.DateTaken;
+        if (date is not null && DateTime.TryParse(date, out var d)) date = d.ToString("d. M. yyyy");
+        return new CaptionContext(AlbumName(folder), date, neighbours, Settings.Glossary ?? "", Settings.CaptionLength);
     }
 
     // ---------- mazání ----------
@@ -300,11 +349,12 @@ public sealed class FotoalbumService : IDisposable
         r ??= new PhotoRecord { Path = path };
         var status = r.Status switch
         {
-            PhotoStatus.Done => "done", PhotoStatus.Draft => "draft", PhotoStatus.Skip => "skip",
+            PhotoStatus.Done => "done", PhotoStatus.Manual => "manual", PhotoStatus.Draft => "draft", PhotoStatus.Skip => "skip",
             PhotoStatus.MarkedDelete => "del", _ => "none",
         };
         return new PhotoDto(path, Path.GetFileName(path), r.DateTaken, status, r.Caption, r.IsDraft, r.Rotation,
-            folderKind == FolderKind.Vacation, r.IsDraft ? null : CaptionTitle.From(r.Caption), r.NeedsFileWrite, r.WriteError);
+            folderKind == FolderKind.Vacation, r.IsDraft ? null : r.Title ?? CaptionTitle.From(r.Caption), r.NeedsFileWrite, r.WriteError,
+            r.CaptionSource);
     }
 
     public void Dispose()

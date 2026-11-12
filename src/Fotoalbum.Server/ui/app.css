@@ -3,7 +3,7 @@
   --page:#dce3df; --win:#f5f7f5; --side:#e8eee9; --surface:#ffffff; --ink:#17201c; --muted:#52615a;
   --line:#c9d3cd; --accent:#2b684b; --accent-ink:#ffffff; --accent-soft:#d9eadf;
   --rec:#c22a2a; --rec-ink:#ffffff; --rec-soft:#fbe2df; --warn:#8d5a0f; --warn-soft:#f6e8cf;
-  --skip:#8f9a94; --sel:#f5b301; --stage:#0f1411; --focus:#1d5fc4; --shadow:0 18px 50px rgba(20,40,30,.18);
+  --skip:#8f9a94; --sel:#f5b301; --manual:#3d6fa8; --stage:#0f1411; --focus:#1d5fc4; --shadow:0 18px 50px rgba(20,40,30,.18);
   --ui:'Atkinson Hyperlegible','Segoe UI',system-ui,sans-serif;
   --text:'Literata',Georgia,'Cambria','Times New Roman',serif;
   color-scheme:light;
@@ -12,7 +12,7 @@
   --page:#0a0e0c; --win:#141a17; --side:#101512; --surface:#1b231f; --ink:#e6eee9; --muted:#9db0a5;
   --line:#2b3631; --accent:#74c59a; --accent-ink:#0b1810; --accent-soft:#1e392b;
   --rec:#ff716a; --rec-ink:#2a0c0a; --rec-soft:#3b1c1a; --warn:#e6b25e; --warn-soft:#3a2c15;
-  --skip:#6d7a73; --sel:#ffc83d; --stage:#060807; --focus:#86b4ff; --shadow:0 18px 50px rgba(0,0,0,.5); color-scheme:dark}}
+  --skip:#6d7a73; --sel:#ffc83d; --manual:#5b8fd0; --stage:#060807; --focus:#86b4ff; --shadow:0 18px 50px rgba(0,0,0,.5); color-scheme:dark}}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -91,11 +91,13 @@ button,input,select,textarea{font:inherit;color:inherit}
 .state.done{background:var(--accent);color:var(--accent-ink)}
 .state.draft{background:var(--warn-soft);color:var(--warn)}
 .state.skip{background:var(--skip);color:#fff}
+.state.manual{background:var(--manual);color:#fff}
 .state.del{background:var(--rec);color:var(--rec-ink)}
 .badge:empty{display:none}
 .badge.done{background:var(--accent);color:var(--accent-ink)}
 .badge.draft{background:var(--warn-soft);color:var(--warn)}
 .badge.skip{background:var(--skip);color:#fff}
+.badge.manual{background:var(--manual);color:#fff}
 .badge.del{background:var(--rec);color:var(--rec-ink)}
 .thumb.skip img{opacity:.55}
 .thumb.del img{opacity:.35;filter:grayscale(1)}
@@ -136,6 +138,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .mode{font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px;padding:3px 9px;border-radius:99px;background:var(--side);color:var(--muted)}
 .mode.done{background:var(--accent-soft);color:var(--accent)}
 .mode.draft{background:var(--warn-soft);color:var(--warn)}
+.mode.manual{background:var(--manual);color:#fff}
 .save{margin-left:auto;display:flex;align-items:center;gap:6px}
 .cap-h .capbtn{margin-left:4px}
 .save.ok{color:var(--accent)}
@@ -146,6 +149,17 @@ textarea::placeholder{color:var(--muted);font-style:italic}
 .warn{background:var(--warn-soft);border-radius:8px;padding:8px 10px;font-size:15px}
 
 .btns{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.aibtns{grid-template-columns:1.25fr 1fr}
+.b.mic{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-size:20px;min-height:70px}
+.b.mic.on{background:var(--rec);border-color:var(--rec);color:var(--rec-ink);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px var(--rec-soft)}}
+.b.ai{border-color:var(--accent);color:var(--accent);min-height:70px;font-size:20px}
+.recbar{font-size:16px;font-weight:700;color:var(--rec)}
+.shimmer{height:6px;border-radius:99px;background:linear-gradient(90deg,var(--accent-soft),var(--accent),var(--accent-soft));background-size:200% 100%;animation:sh 1s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.fix{border-top:1px dashed var(--line);padding-top:6px;font-size:17px;display:flex;gap:10px;align-items:baseline}
+.fix .lbl{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--rec);flex:none}
+.fix .t{font-family:var(--text);color:var(--ink)}
 .btns3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 .skipbtn{border-style:dashed;border-color:var(--skip);color:var(--ink);background:var(--side);min-height:56px;font-size:18px}
 .capbtn{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:none;border-radius:8px;padding:4px 10px;font-size:15px;cursor:pointer;color:var(--muted)}

@@ -43,6 +43,12 @@ internal sealed class MainForm : Form
 #endif
             core.Settings.IsStatusBarEnabled = false;
             core.NewWindowRequested += (_, a) => a.Handled = true;
+            // mikrofon pro diktování povolit jen vlastnímu rozhraní Fotoalba
+            core.PermissionRequested += (_, a) =>
+            {
+                if (a.PermissionKind == CoreWebView2PermissionKind.Microphone && a.Uri.StartsWith(_server.BaseUrl, StringComparison.OrdinalIgnoreCase))
+                    a.State = CoreWebView2PermissionState.Allow;
+            };
             core.NavigationStarting += (_, a) =>
             {
                 if (!a.Uri.StartsWith(_server.BaseUrl, StringComparison.OrdinalIgnoreCase)) a.Cancel = true;
