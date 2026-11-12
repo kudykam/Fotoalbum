@@ -310,7 +310,7 @@ public sealed class FotoalbumService : IDisposable
 
     // ---------- záloha a ukončení ----------
 
-    /// <summary>Konzistentní záloha databáze do „Fotoalbum – databáze (nemazat)/zaloha“ ve složce s fotkami (zálohuje ji Synology Drive).</summary>
+    /// <summary>Konzistentní záloha databáze do „Fotokronikář – databáze (nemazat)/zaloha“ ve složce s fotkami (zálohuje ji Synology Drive).</summary>
     public string? BackupCatalog()
     {
         var lib = _library;

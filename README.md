@@ -1,4 +1,6 @@
-# Fotoalbum
+# Fotokronikář
+
+*(repozitář a vnitřní názvy projektů zůstávají „Fotoalbum“)*
 
 Aplikace pro Windows na popisování fotografií z cest. Popisky se ukládají přímo do metadat JPG
 (XMP `dc:description`, IPTC `Caption-Abstract`, EXIF `ImageDescription`), takže je uvidí i jiné programy.

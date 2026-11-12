@@ -12,7 +12,7 @@
     <AssemblyName>Fotoalbum</AssemblyName>
     <ApplicationIcon>fotoalbum.ico</ApplicationIcon>
     <RootNamespace>Fotoalbum.Desktop</RootNamespace>
-    <Product>Fotoalbum</Product>
+    <Product>Fotokronikář</Product>
     <Version>0.3.0</Version>
     <!-- Balíček WebView2 obsahuje i WPF variantu; konflikt verzí WindowsBase se nás netýká. -->
     <NoWarn>$(NoWarn);MSB3277</NoWarn>

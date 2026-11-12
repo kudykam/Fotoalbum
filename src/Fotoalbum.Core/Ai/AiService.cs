@@ -257,7 +257,7 @@ public sealed class AiService
             Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
         };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
-        req.Headers.Add("X-Title", "Fotoalbum");
+        req.Headers.Add("X-Title", "Fotokronikar");
         HttpResponseMessage res;
         try { res = await _http.SendAsync(req, ct); }
         catch (HttpRequestException) { throw new AiException("Nepodařilo se spojit s AI. Je počítač připojený k internetu?"); }

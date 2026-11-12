@@ -22,10 +22,13 @@ public sealed class PhotoLibrary
     public string Root { get; }
 
     /// <summary>Servisní složka s databází a zálohami (zálohuje ji Synology Drive). Ve stromu se nezobrazuje.</summary>
-    public const string DatabaseFolder = "Fotoalbum – databáze (nemazat)";
+    public const string DatabaseFolder = "Fotokronikář – databáze (nemazat)";
 
     /// <summary>Originály fotek před odstraněním starého vepsaného textu (etapa 4). Ve stromu se nezobrazuje.</summary>
-    public const string OriginalsFolder = "Fotoalbum – originály (nemazat)";
+    public const string OriginalsFolder = "Fotokronikář – originály (nemazat)";
+
+    /// <summary>Název servisní složky před přejmenováním aplikace na Fotokronikář.</summary>
+    public const string PreviousDatabaseFolder = "Fotoalbum – databáze (nemazat)";
 
     /// <summary>Starší název servisní složky (před 12. 11. 2026).</summary>
     public const string LegacyDatabaseFolder = "_fotoalbum";
@@ -44,6 +47,7 @@ public sealed class PhotoLibrary
     public static bool IsIgnoredDir(string name) =>
         name.StartsWith('.') || name.StartsWith('_') || IgnoredDirs.Contains(name)
         || name.Equals(DatabaseFolder, StringComparison.OrdinalIgnoreCase)
+        || name.Equals(PreviousDatabaseFolder, StringComparison.OrdinalIgnoreCase)
         || name.Equals(OriginalsFolder, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
@@ -52,10 +56,14 @@ public sealed class PhotoLibrary
     /// </summary>
     public void MigrateServiceFolders()
     {
-        var oldDir = Path.Combine(Root, LegacyDatabaseFolder);
         try
         {
-            if (!Directory.Exists(oldDir) || Directory.Exists(DatabaseDir)) return;
+            if (Directory.Exists(DatabaseDir)) return;
+            // složka z doby, kdy se aplikace jmenovala Fotoalbum (název je jednoznačně náš)
+            var previous = Path.Combine(Root, PreviousDatabaseFolder);
+            if (Directory.Exists(previous)) { Directory.Move(previous, DatabaseDir); return; }
+            var oldDir = Path.Combine(Root, LegacyDatabaseFolder);
+            if (!Directory.Exists(oldDir)) return;
             var ours = Directory.Exists(Path.Combine(oldDir, "zaloha"))
                 && Directory.EnumerateFiles(Path.Combine(oldDir, "zaloha"), "katalog-*.db").Any();
             if (ours) Directory.Move(oldDir, DatabaseDir);

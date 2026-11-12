@@ -406,3 +406,18 @@ public class IptcLimitTests
         Assert.EndsWith("…", s);
     }
 }
+
+public class RenameTests
+{
+    [Fact]
+    public void Servisni_slozka_z_doby_Fotoalba_se_prejmenuje()
+    {
+        using var t = new TempDir();
+        t.Sub("A", PhotoLibrary.PreviousDatabaseFolder, "zaloha");
+        var lib = new PhotoLibrary(System.IO.Path.Combine(t.Path, "A"));
+        lib.MigrateServiceFolders();
+        Assert.True(Directory.Exists(System.IO.Path.Combine(lib.DatabaseDir, "zaloha")));
+        Assert.False(Directory.Exists(System.IO.Path.Combine(t.Path, "A", PhotoLibrary.PreviousDatabaseFolder)));
+        Assert.True(PhotoLibrary.IsIgnoredDir(PhotoLibrary.PreviousDatabaseFolder));
+    }
+}

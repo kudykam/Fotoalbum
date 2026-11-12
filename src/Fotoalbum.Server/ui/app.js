@@ -1,5 +1,5 @@
 "use strict";
-/* Fotoalbum – Pracovna (etapa 1 + úpravy po prvním testu, specifikace 2.7).
+/* Fotokronikář – Pracovna (etapa 1 + úpravy po prvním testu, specifikace 2.7).
    Popisek se ukládá až při další akci (Další, Předchozí, Bez popisku…), Zpět/Znovu vrací celé akce. */
 
 const $ = id => document.getElementById(id);
@@ -70,7 +70,7 @@ async function boot() {
     const r = await api("GET", "/api/state");
     S.state = r.state; S.host = r.host; S.canPick = r.canPickFolder; renderApp(r.app);
   } catch (e) {
-    document.body.innerHTML = `<div class="setup"><div class="card"><h1>Fotoalbum</h1><p>${esc(e.message)}</p></div></div>`;
+    document.body.innerHTML = `<div class="setup"><div class="card"><h1>Fotokronikář</h1><p>${esc(e.message)}</p></div></div>`;
     return;
   }
   await loadAi();
@@ -86,7 +86,7 @@ function showSetup(first) {
   const st = S.state;
   $("work").hidden = true; const el = $("setup"); el.hidden = false;
   el.innerHTML = `<div class="card">
-    <div class="head"><h1>${first ? "Vítejte ve Fotoalbu" : "Nastavení"}</h1>${first ? "" : `<button class="b small solid" id="back">Zpět do Pracovny</button>`}</div>
+    <div class="head"><h1>${first ? "Vítejte ve Fotokronikáři" : "Nastavení"}</h1>${first ? "" : `<button class="b small solid" id="back">Zpět do Pracovny</button>`}</div>
     ${st.problem ? `<div class="note bad">${esc(st.problem)}</div>` : ""}
     <div class="sec" style="border-top:0;padding-top:0">
       ${first ? "" : "<h2>Složka s fotkami</h2>"}
@@ -102,7 +102,7 @@ function showSetup(first) {
     </div>
     ${first ? "" : `<div class="sec">${aiSection()}</div>`}
     ${first ? "" : `<div class="sec">${updatesSection()}</div>`}
-    ${first ? "" : `<div class="sec"><h2>Data aplikace</h2><p style="font-size:16px">Databáze a náhledy jsou v profilu uživatele. Záloha databáze se ukládá do složky <b>Fotoalbum – databáze (nemazat)</b> ve složce s fotkami.</p></div>`}
+    ${first ? "" : `<div class="sec"><h2>Data aplikace</h2><p style="font-size:16px">Databáze a náhledy jsou v profilu uživatele. Záloha databáze se ukládá do složky <b>Fotokronikář – databáze (nemazat)</b> ve složce s fotkami.</p></div>`}
   </div>`;
   if (!first) $("autoImp").onchange = async e => {
     try { S.state = await api("POST", "/api/settings", { autoImport: e.target.checked }); toast("Uloženo."); } catch (err) { fail(err); }
@@ -162,7 +162,7 @@ function renderApp(a) {
   const msg = a.status === "ready" ? `Nová verze ${a.newVersion} – nainstaluje se po zavření okna`
     : a.status === "downloading" ? "Stahuji novou verzi…" : "";
   u.hidden = !msg; u.textContent = msg;
-  if (a.updatedTo && !shownUpdatedTo) { shownUpdatedTo = true; toast(`Fotoalbum bylo aktualizováno na verzi ${a.updatedTo}.`, null, 6000); }
+  if (a.updatedTo && !shownUpdatedTo) { shownUpdatedTo = true; toast(`Fotokronikář byl aktualizován na verzi ${a.updatedTo}.`, null, 6000); }
 }
 
 /* ---------- strom složek ---------- */
@@ -763,7 +763,7 @@ async function quit(moveToBin) {
   try {
     await api("POST", "/api/quit", { moveMarkedToBin: moveToBin });
     S.closed = true; clearTimeout(pollT);
-    if (S.host !== "pc") modal(`<h3>Fotoalbum je zavřené</h3><p>Vše je uložené. Okno prohlížeče můžete zavřít.</p>`, () => {});
+    if (S.host !== "pc") modal(`<h3>Fotokronikář je zavřený</h3><p>Vše je uložené. Okno prohlížeče můžete zavřít.</p>`, () => {});
   } catch (e) { $("modalHost").innerHTML = ""; fail(e); }
 }
 /** Skryté nastavení pro správce (Ctrl+Alt+S nebo menu ikony u hodin). */
@@ -806,7 +806,12 @@ $("ta").addEventListener("input", () => {
 });
 document.addEventListener("keydown", e => {
   if ($("modalHost").innerHTML) return;
-  if (e.key === "Escape") { closeMenu(); return; }
+  if (e.key === "Escape") {
+    closeMenu();
+    // Esc zavře nastavení a vrátí do Pracovny
+    if (!$("setup").hidden && S.state && S.state.configured && $("back")) $("back").click();
+    return;
+  }
   // Ctrl+Alt+S – na české klávesnici je Ctrl+Alt = AltGr a e.key je „đ“, proto podle fyzické klávesy
   if (e.ctrlKey && e.altKey && e.code === "KeyS") { e.preventDefault(); openSettings(); return; }
   if ($("work").hidden) return;

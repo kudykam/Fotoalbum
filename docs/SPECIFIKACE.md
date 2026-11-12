@@ -1,4 +1,4 @@
-# Fotoalbum – specifikace (verze 0.1, návrh)
+# Fotokronikář (dříve Fotoalbum) – specifikace (verze 0.1, návrh)
 
 > Stav: **plánování**. Dokument shrnuje dosud odsouhlasené zadání. Změna požadavku se nejdřív zapíše sem, teprve potom do kódu.
 
@@ -161,12 +161,17 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Fotka s ponechaným ručním textem dostane **vlastní značku „jen ruční text“** (miniatura i pruh postupu); je to povolený stav.
 
 **Servisní složky ve složce s fotkami** (ve stromu se nezobrazují):
-- databáze a zálohy: **„Fotoalbum – databáze (nemazat)“** (dříve `_fotoalbum`),
-- originály před odstraněním vepsaného textu (etapa 4): **„Fotoalbum – originály (nemazat)“** (dříve `_originaly`).
+- databáze a zálohy: **„Fotokronikář – databáze (nemazat)“** (dříve `_fotoalbum`),
+- originály před odstraněním vepsaného textu (etapa 4): **„Fotokronikář – originály (nemazat)“** (dříve `_originaly`).
 
 **Ověřeno uživatelem:** zápis popisků do fotek (ExifTool OK), ikona u hodin, kopírování z karty, ostatní funkce etapy 1.
 
 **Stav:** implementováno (kromě bodů pro etapu 2 – korektura, značka „jen ruční text“, nadpis od AI). Nadpis je zatím první věta popisku. Rozepsaný text se pro případ nečekaného zavření drží v okně aplikace (neukládá se do fotky ani do historie) a po dalším otevření se nabídne.
+
+### 2.9 Název aplikace (12. 11. 2026)
+- Aplikace se jmenuje **Fotokronikář** (vystihuje hlavní funkci: popisuje fotky a skládá z nich kroniku).
+- Přejmenované je vše, co vidí uživatel (okno, ikona u hodin, zástupce, instalátor, nápisy, servisní složka „Fotokronikář – databáze (nemazat)“ – stará „Fotoalbum – databáze (nemazat)“ se přejmenuje sama).
+- Vnitřní názvy zůstávají (repozitář, projekty, `Fotoalbum.exe`, data v `%LOCALAPPDATA%\Fotoalbum`, identifikátor aktualizací `Fotoalbum.App`), aby aktualizace a data fungovaly bez přeinstalace.
 
 ### 2.8 Automatické aktualizace (schváleno 12. 11. 2026)
 - Zdroj: **GitHub Releases** repozitáře (veřejné, bez přihlášení). Nástroj **Velopack** (MIT): instalace do profilu uživatele bez práv správce, rozdílové aktualizace, kontrola celistvosti.

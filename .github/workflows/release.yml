@@ -76,7 +76,7 @@ jobs:
           vpk download github --repoUrl https://github.com/${{ github.repository }} --channel $env:CH --token ${{ secrets.GITHUB_TOKEN }} $pre -o releases
 
       - name: Balíček a instalátor
-        run: vpk pack -u Fotoalbum.App -v ${{ env.VER }} -p out/Fotoalbum -e Fotoalbum.exe --packTitle Fotoalbum --packAuthors Fotoalbum -i src/Fotoalbum.Desktop/fotoalbum.ico -c ${{ env.CH }} -o releases
+        run: vpk pack -u Fotoalbum.App -v ${{ env.VER }} -p out/Fotoalbum -e Fotoalbum.exe --packTitle "Fotokronikář" --packAuthors Fotoalbum -i src/Fotoalbum.Desktop/fotoalbum.ico -c ${{ env.CH }} -o releases
 
       - name: Zveřejnit vydání
         shell: pwsh

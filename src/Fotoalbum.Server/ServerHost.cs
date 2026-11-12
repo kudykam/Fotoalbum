@@ -95,7 +95,7 @@ public static class ServerHost
             if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Request.Cookies[CookieName] != token)
             {
                 ctx.Response.StatusCode = 401;
-                await ctx.Response.WriteAsJsonAsync(new { error = "Chybí přístupový klíč. Otevřete Fotoalbum z aplikace." });
+                await ctx.Response.WriteAsJsonAsync(new { error = "Chybí přístupový klíč. Otevřete Fotokronikář z aplikace." });
                 return;
             }
             ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
