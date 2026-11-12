@@ -34,7 +34,7 @@ jobs:
           "CH=$ch" >> $env:GITHUB_ENV
           Write-Host "Verze $ver, kanál $ch"
 
-      - name: Testy
+      - name: Kontrolní sestavení
         run: dotnet build -c Release src/Fotoalbum.Desktop
 
       - name: Sestavení aplikace
@@ -74,7 +74,7 @@ jobs:
       - name: Zveřejnit vydání
         shell: pwsh
         run: |
-          $args = @('upload','github','--repoUrl',"https://github.com/${{ github.repository }}",'--token','${{ secrets.GITHUB_TOKEN }}',
+          $a = @('upload','github','--repoUrl',"https://github.com/${{ github.repository }}",'--token','${{ secrets.GITHUB_TOKEN }}',
                     '--channel',$env:CH,'-o','releases','--publish','--releaseName',"Fotoalbum $env:VER",'--tag','${{ github.ref_name }}')
-          if ($env:CH -eq 'test') { $args += '--pre' }
-          vpk @args
+          if ($env:CH -eq 'test') { $a += '--pre' }
+          vpk @a
