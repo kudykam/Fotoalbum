@@ -22,13 +22,16 @@ public sealed class PhotoLibrary
     public string Root { get; }
 
     /// <summary>Servisní složka s databází a zálohami (zálohuje ji Synology Drive). Ve stromu se nezobrazuje.</summary>
-    public const string DatabaseFolder = "Fotokronikář – databáze (nemazat)";
+    public const string DatabaseFolder = "Fotokronika – databáze (nemazat)";
 
     /// <summary>Originály fotek před odstraněním starého vepsaného textu (etapa 4). Ve stromu se nezobrazuje.</summary>
-    public const string OriginalsFolder = "Fotokronikář – originály (nemazat)";
+    public const string OriginalsFolder = "Fotokronika – originály (nemazat)";
 
-    /// <summary>Název servisní složky před přejmenováním aplikace na Fotokronikář.</summary>
+    /// <summary>Název servisní složky z doby, kdy se aplikace jmenovala Fotoalbum.</summary>
     public const string PreviousDatabaseFolder = "Fotoalbum – databáze (nemazat)";
+
+    /// <summary>Název servisní složky z krátké doby, kdy se aplikace jmenovala Fotokronikář (testovací verze).</summary>
+    public const string KronikarDatabaseFolder = "Fotokronikář – databáze (nemazat)";
 
     /// <summary>Starší název servisní složky (před 12. 11. 2026).</summary>
     public const string LegacyDatabaseFolder = "_fotoalbum";
@@ -48,6 +51,7 @@ public sealed class PhotoLibrary
         name.StartsWith('.') || name.StartsWith('_') || IgnoredDirs.Contains(name)
         || name.Equals(DatabaseFolder, StringComparison.OrdinalIgnoreCase)
         || name.Equals(PreviousDatabaseFolder, StringComparison.OrdinalIgnoreCase)
+        || name.Equals(KronikarDatabaseFolder, StringComparison.OrdinalIgnoreCase)
         || name.Equals(OriginalsFolder, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
@@ -59,9 +63,12 @@ public sealed class PhotoLibrary
         try
         {
             if (Directory.Exists(DatabaseDir)) return;
-            // složka z doby, kdy se aplikace jmenovala Fotoalbum (název je jednoznačně náš)
-            var previous = Path.Combine(Root, PreviousDatabaseFolder);
-            if (Directory.Exists(previous)) { Directory.Move(previous, DatabaseDir); return; }
+            // složky z dob, kdy se aplikace jmenovala Fotokronikář / Fotoalbum (názvy jsou jednoznačně naše)
+            foreach (var name in new[] { KronikarDatabaseFolder, PreviousDatabaseFolder })
+            {
+                var previous = Path.Combine(Root, name);
+                if (Directory.Exists(previous)) { Directory.Move(previous, DatabaseDir); return; }
+            }
             var oldDir = Path.Combine(Root, LegacyDatabaseFolder);
             if (!Directory.Exists(oldDir)) return;
             var ours = Directory.Exists(Path.Combine(oldDir, "zaloha"))

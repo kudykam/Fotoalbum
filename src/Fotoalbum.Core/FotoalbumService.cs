@@ -3,7 +3,7 @@ using Fotoalbum.Core.Ai;
 namespace Fotoalbum.Core;
 
 public sealed record StateDto(bool Configured, string? Root, string? RootName, bool ExifToolOk, string? ExifToolVersion,
-    string? LastFolder, int PendingWrites, string? Problem, bool AutoImport);
+    string? LastFolder, int PendingWrites, string? Problem, bool AutoImport, int TextSize);
 
 public sealed record FolderDto(string Path, string Name, string Kind, bool KindInherited, int Total, int Handled, int Done,
     List<FolderDto> Children);
@@ -86,7 +86,7 @@ public sealed class FotoalbumService : IDisposable
         var lib = _library;
         return new StateDto(lib is not null, lib?.Root, lib is null ? null : Path.GetFileName(lib.Root.TrimEnd(Path.DirectorySeparatorChar)),
             _exif is not null, _exif?.TryVersion(), Db.GetState("last_folder"), Writer.PendingCount + Db.GetPendingWrites().Count, _problem,
-            _settings.Current.AutoImport);
+            _settings.Current.AutoImport, _settings.Current.TextSize);
     }
 
     /// <summary>Nastaví kanál aktualizací (stable / test).</summary>
@@ -96,9 +96,10 @@ public sealed class FotoalbumService : IDisposable
         _settings.Update(s => { s.UpdateChannel = channel; s.UpdateChannelChosen = true; });
     }
 
-    public void Configure(string? photoRoot, string? exifToolPath, bool? autoImport = null)
+    public void Configure(string? photoRoot, string? exifToolPath, bool? autoImport = null, int? textSize = null)
     {
         if (autoImport is { } ai) _settings.Update(s => s.AutoImport = ai);
+        if (textSize is { } ts) _settings.Update(s => s.TextSize = Math.Clamp(ts, 80, 140));
         if (photoRoot is not null)
         {
             var full = Path.GetFullPath(photoRoot.Trim().Trim('"'));
@@ -311,7 +312,7 @@ public sealed class FotoalbumService : IDisposable
 
     // ---------- záloha a ukončení ----------
 
-    /// <summary>Konzistentní záloha databáze do „Fotokronikář – databáze (nemazat)/zaloha“ ve složce s fotkami (zálohuje ji Synology Drive).</summary>
+    /// <summary>Konzistentní záloha databáze do „Fotokronika – databáze (nemazat)/zaloha“ ve složce s fotkami (zálohuje ji Synology Drive).</summary>
     public string? BackupCatalog()
     {
         var lib = _library;

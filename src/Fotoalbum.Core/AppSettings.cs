@@ -11,7 +11,7 @@ public sealed class AppSettings
     /// <summary>Volitelná cesta k exiftool(.exe). Prázdné = hledá se vedle aplikace a v PATH.</summary>
     public string? ExifToolPath { get; set; }
 
-    /// <summary>Kolik posledních záloh databáze ponechat ve složce „Fotokronikář – databáze (nemazat)/zaloha“.</summary>
+    /// <summary>Kolik posledních záloh databáze ponechat ve složce „Fotokronika – databáze (nemazat)/zaloha“.</summary>
     public int BackupsToKeep { get; set; } = 10;
 
     /// <summary>Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky (program běží na pozadí u hodin).</summary>
@@ -37,6 +37,9 @@ public sealed class AppSettings
 
     /// <summary>Délka popisku: kratky / stredni / delsi.</summary>
     public string CaptionLength { get; set; } = "stredni";
+
+    /// <summary>Velikost písma a ovládání v procentech (90–130, výchozí 100).</summary>
+    public int TextSize { get; set; } = 100;
 
     /// <summary>Kolik zatím stála AI (USD, podle OpenRouteru).</summary>
     public double AiCostUsd { get; set; }

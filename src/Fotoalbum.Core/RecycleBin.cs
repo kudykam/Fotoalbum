@@ -9,7 +9,7 @@ public interface IRecycleBin
 
 /// <summary>
 /// Náhradní koš pro prostředí bez koše Windows (vývoj, testy): soubor se přesune
-/// do složky „Fotokronikář – databáze (nemazat)/kos“ uvnitř složky s fotkami, se zachovanou cestou.
+/// do složky „Fotokronika – databáze (nemazat)/kos“ uvnitř složky s fotkami, se zachovanou cestou.
 /// Ve Windows aplikaci se používá skutečný koš Windows.
 /// </summary>
 public sealed class FolderRecycleBin(string photoRoot) : IRecycleBin

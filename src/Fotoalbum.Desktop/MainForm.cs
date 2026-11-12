@@ -21,7 +21,7 @@ internal sealed class MainForm : Form
     public MainForm(RunningServer server)
     {
         _server = server;
-        Text = "Fotokronikář";
+        Text = "Fotokronika";
         Icon = TrayContext.AppIcon.Load(new Size(32, 32));
         WindowState = FormWindowState.Maximized;
         MinimumSize = new Size(1000, 640);
@@ -62,14 +62,14 @@ internal sealed class MainForm : Form
         }
         catch (WebView2RuntimeNotFoundException)
         {
-            MessageBox.Show("Chybí součást Windows „Microsoft Edge WebView2“. Nainstalujte ji prosím ze stránek Microsoftu a spusťte Fotokronikář znovu.",
-                "Fotokronikář", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Chybí součást Windows „Microsoft Edge WebView2“. Nainstalujte ji prosím ze stránek Microsoftu a spusťte Fotokroniku znovu.",
+                "Fotokronika", MessageBoxButtons.OK, MessageBoxIcon.Error);
             CloseConfirmed();
         }
         catch (Exception ex)
         {
             Log.Error(ex);
-            MessageBox.Show("Okno Fotokronikáře se nepodařilo otevřít: " + ex.Message, "Fotokronikář", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Okno Fotokroniky se nepodařilo otevřít: " + ex.Message, "Fotokronika", MessageBoxButtons.OK, MessageBoxIcon.Error);
             CloseConfirmed();
         }
     }

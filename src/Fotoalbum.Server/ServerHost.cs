@@ -95,7 +95,7 @@ public static class ServerHost
             if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Request.Cookies[CookieName] != token)
             {
                 ctx.Response.StatusCode = 401;
-                await ctx.Response.WriteAsJsonAsync(new { error = "Chybí přístupový klíč. Otevřete Fotokronikář z aplikace." });
+                await ctx.Response.WriteAsJsonAsync(new { error = "Chybí přístupový klíč. Otevřete Fotokroniku z aplikace." });
                 return;
             }
             ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -154,7 +154,7 @@ public static class ServerHost
 
         api.MapPost("/settings", (SettingsRequest r) =>
         {
-            s.Configure(r.PhotoRoot, r.ExifToolPath, r.AutoImport);
+            s.Configure(r.PhotoRoot, r.ExifToolPath, r.AutoImport, r.TextSize);
             return Results.Json(s.GetState());
         });
 
@@ -242,7 +242,7 @@ public sealed record AiSettingsRequest(string? Key, string? TextModel, string? A
 public sealed record TranscribeRequest(string Audio, string? Previous);
 public sealed record ImproveRequest(string Path, string? Dictation);
 public sealed record FixRequest(string Path, string? Caption, string? Instruction);
-public sealed record SettingsRequest(string? PhotoRoot, string? ExifToolPath, bool? AutoImport);
+public sealed record SettingsRequest(string? PhotoRoot, string? ExifToolPath, bool? AutoImport, int? TextSize);
 public sealed record FolderKindRequest(string Path, string? Kind);
 public sealed record CaptionRequest(string Path, string? Caption, bool IsDraft, string? Source = null, string? Title = null, string? Raw = null);
 public sealed record FlagsRequest(string Path, bool? Skip, bool? MarkedDelete, int? Rotation);

@@ -1,4 +1,4 @@
-# Fotokronikář (dříve Fotoalbum) – specifikace (verze 0.1, návrh)
+# Fotokronika (dříve Fotoalbum) – specifikace (verze 0.1, návrh)
 
 > Stav: **plánování**. Dokument shrnuje dosud odsouhlasené zadání. Změna požadavku se nejdřív zapíše sem, teprve potom do kódu.
 
@@ -37,7 +37,7 @@ Cílový monitor: 21″, 1920×1080. **Schváleno: popisek a ovládání jsou VE
 └──────────────┴────────────────────────────────────────┴──────────────────┘
 ```
 
-- Pravý panel: upozornění na starý vepsaný popisek → pole popisku (vyplní volnou výšku) → **Diktovat** (největší tlačítko, přes celou šířku) → **Vylepšit text** → Předchozí / Další → Zpět / Znovu → Smazat popisek / Více.
+- *(Do verze 0.3 – nahrazeno rozložením 2.10.)* Pravý panel: upozornění na starý vepsaný popisek → pole popisku (vyplní volnou výšku) → **Diktovat** (největší tlačítko, přes celou šířku) → **Vylepšit text** → Předchozí / Další → Zpět / Znovu → Smazat popisek / Více.
 - Na okrajích fotky velké poloprůhledné šipky ◀ ▶ pro předchozí / další fotku.
 - Okno aplikace využívá celou šířku monitoru.
 - Varianta „popisek pod fotkou“ zůstane jen jako volba v nastavení (pro jiný poměr stran monitoru), výchozí je vedle.
@@ -160,25 +160,34 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Odchod z fotky s napsaným/nadiktovaným textem bez korektury → dotaz „Odejít bez korektury?“ – **vždy** (i u běžných fotek, bez volby „neptat se“).
 - Fotka s ponechaným ručním textem dostane **vlastní značku „jen ruční text“** (miniatura i pruh postupu); je to povolený stav.
 
-**Okno diktování (úprava po testu 12. 11. 2026):**
-- Panel popisku vedle fotky zůstává na rychlé prohlédnutí uloženého textu a ruční psaní.
-- Tlačítko **Diktovat** (i F2) otevře **velké okno**: vlevo fotka, vpravo velký text, **nahrávání se spustí hned**; text přibývá po větách a okno se posouvá na konec.
-- V okně: **Zastavit / Pokračovat v diktování** (po korektuře „Diktovat úpravu“), **Korektura** (zastaví nahrávání a rovnou upraví text; pak „Upravit znovu“ / „Použít úpravu“), velké **„Schválit a další fotka“**, **„Zavřít okno (text zůstane)“**; Esc = zavřít.
-- „Schválit a další fotka“ uloží text tak, jak je (i bez korektury – je to vědomá volba, proto se **neptá** „Odejít bez korektury?“; ruční text dostane značku ✍), zavře okno a ukáže další fotku. Na poslední fotce jen uloží.
-- Text lze v okně i ručně opravit; je stejný jako v panelu.
+**Schválit a další fotka (12. 11. 2026):**
+- „Schválit a další fotka“ uloží text tak, jak je (i bez korektury – je to vědomá volba, proto se **neptá** „Odejít bez korektury?“; ruční text dostane značku ✍) a ukáže další fotku. Na poslední fotce jen uloží.
+- Korekturu lze stisknout i během nahrávání – nahrávání se samo zastaví a text se rovnou upraví.
+- *(Vyzkoušené vyskakovací okno pro diktování se neosvědčilo – nahrazeno rozložením 2.10.)*
 
 **Servisní složky ve složce s fotkami** (ve stromu se nezobrazují):
-- databáze a zálohy: **„Fotokronikář – databáze (nemazat)“** (dříve `_fotoalbum`),
-- originály před odstraněním vepsaného textu (etapa 4): **„Fotokronikář – originály (nemazat)“** (dříve `_originaly`).
+- databáze a zálohy: **„Fotokronika – databáze (nemazat)“** (dříve `_fotoalbum`, „Fotoalbum – …“, „Fotokronikář – …“; přejmenuje se sama),
+- originály před odstraněním vepsaného textu (etapa 4): **„Fotokronika – originály (nemazat)“** (dříve `_originaly`).
 
 **Ověřeno uživatelem:** zápis popisků do fotek (ExifTool OK), ikona u hodin, kopírování z karty, ostatní funkce etapy 1.
 
 **Stav:** implementováno (kromě bodů pro etapu 2 – korektura, značka „jen ruční text“, nadpis od AI). Nadpis je zatím první věta popisku. Rozepsaný text se pro případ nečekaného zavření drží v okně aplikace (neukládá se do fotky ani do historie) a po dalším otevření se nabídne.
 
 ### 2.9 Název aplikace (12. 11. 2026)
-- Aplikace se jmenuje **Fotokronikář** (vystihuje hlavní funkci: popisuje fotky a skládá z nich kroniku).
-- Přejmenované je vše, co vidí uživatel (okno, ikona u hodin, zástupce, instalátor, nápisy, servisní složka „Fotokronikář – databáze (nemazat)“ – stará „Fotoalbum – databáze (nemazat)“ se přejmenuje sama).
+- Aplikace se jmenuje **Fotokronika** (vystihuje hlavní funkci: z fotek s popisky vzniká kronika). Krátce se jmenovala „Fotokronikář“ – název s „ř“ dělal potíže nástroji na aktualizace, proto od verze 0.4 „Fotokronika“.
+- Přejmenované je vše, co vidí uživatel (okno, ikona u hodin, zástupce, instalátor, nápisy, servisní složka „Fotokronika – databáze (nemazat)“ – starší „Fotoalbum – …“ a „Fotokronikář – …“ se přejmenují samy).
 - Vnitřní názvy zůstávají (repozitář, projekty, `Fotoalbum.exe`, data v `%LOCALAPPDATA%\Fotoalbum`, identifikátor aktualizací `Fotoalbum.App`), aby aktualizace a data fungovaly bez přeinstalace.
+
+### 2.10 Rozložení Pracovny v2 (schváleno 12. 11. 2026, verze 0.4)
+- **Bez vyskakovacích oken pro diktování.** Rozložení: vlevo strom složek, uprostřed velká fotka a **pod ní široké pole popisku**, vpravo **svislý pás miniatur**.
+- Pole popisku pod fotkou (přes celou šířku fotky, vejde se 4–6 řádků):
+  - nahoře stav popisku (Popisek / Rozepsáno / Jen ruční text…), při diktování červené „● Diktujete 0:24“, Uloženo, Původní text, Smazat text;
+  - vpravo od textu: **Diktovat** (při nahrávání červené „Zastavit 0:24“, po korektuře „Diktovat úpravu“), **Korektura** („Upravit znovu“ / „Použít úpravu“), **Schválit a další fotka**;
+  - pod textem menší tlačítka: Předchozí, Další, Bez popisku – další fotka, Zpět, Znovu, Více (když se nevejdou, ukážou se jen ikony).
+  - Při diktování má pole červený rámeček a text se posouvá, aby bylo vidět poslední větu; text lze kdykoli opravit ručně.
+- Svislý pás miniatur: nahoře „Fotka 5 z 486 · vyřízeno …“ a barevný pruh postupu (klepnutím skok), dole „Další nepopsaná“.
+- Písmo je menší než ve verzi 0.3 (test na 15" notebooku); **velikost písma** jde nastavit v Nastavení (⚙): 80–140 %, po 10 %, ukládá se v počítači (zvětší i tlačítka).
+- Náhled: `docs/maketa/pracovna-v2.html`.
 
 ### 2.8 Automatické aktualizace (schváleno 12. 11. 2026)
 - Zdroj: **GitHub Releases** repozitáře (veřejné, bez přihlášení). Nástroj **Velopack** (MIT): instalace do profilu uživatele bez práv správce, rozdílové aktualizace, kontrola celistvosti.
@@ -313,7 +322,7 @@ Mají přednost před starším textem této specifikace, kde se liší.
 
 ### Etapy
 1. **MVP – hotovo** (čeká na vyzkoušení ve Windows): strom složek, miniatury, velká fotka, ruční popisek, automatické ukládání do metadat, označení ke smazání, stavy „bez popisku“ a pokračování (2.5), záloha databáze, lokální server + webové rozhraní.
-2. **Diktování a AI – implementováno, čeká na test se skutečným klíčem:** 🎤 Diktovat (přepis po větách), ✨ Korektura, hlasové úpravy („Diktovat úpravu“ → „Použít úpravu“), nadpis od AI, značka „✍ Jen ruční text“, dotaz při odchodu bez korektury, slovníček, délka popisku, útrata; vše vratné tlačítkem Zpět. Klávesa F2 = diktovat. Diktuje se ve velkém okně se „Schválit a další fotka“.
+2. **Diktování a AI – implementováno, čeká na test se skutečným klíčem:** 🎤 Diktovat (přepis po větách), ✨ Korektura, hlasové úpravy („Diktovat úpravu“ → „Použít úpravu“), nadpis od AI, značka „✍ Jen ruční text“, dotaz při odchodu bez korektury, slovníček, délka popisku, útrata; vše vratné tlačítkem Zpět. Klávesa F2 = diktovat. Diktuje se do pole pod fotkou, „Schválit a další fotka“ (2.10).
 3. Knihovna alb (2.1), úvodní texty, vyhledávání.
 4. Staré vepsané popisky: přečtení a odstranění (kap. 7).
 5. Čtecí režim – obě varianty (2.3), „Pustit na televizi“ (2.3.1) a DLNA server pro TV (2.3.2).

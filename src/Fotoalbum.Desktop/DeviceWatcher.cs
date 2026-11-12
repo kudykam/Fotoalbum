@@ -21,7 +21,7 @@ internal sealed class DeviceWatcher : NativeWindow, IDisposable
 
     public event Action<string>? DriveArrived;
 
-    public DeviceWatcher() => CreateHandle(new CreateParams { Caption = "Fotokronikář – hlídání karet" });
+    public DeviceWatcher() => CreateHandle(new CreateParams { Caption = "Fotokronika – hlídání karet" });
 
     protected override void WndProc(ref Message m)
     {

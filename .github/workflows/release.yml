@@ -76,8 +76,8 @@ jobs:
           vpk download github --repoUrl https://github.com/${{ github.repository }} --channel $env:CH --token ${{ secrets.GITHUB_TOKEN }} $pre -o releases
 
       - name: Balíček a instalátor
-        # --delta none: vpk neumí rozdílové balíčky, když má název programu diakritiku (Fotokronikář)
-        run: vpk pack -u Fotoalbum.App -v ${{ env.VER }} -p out/Fotoalbum -e Fotoalbum.exe --packTitle "Fotokronikář" --packAuthors Fotoalbum -i src/Fotoalbum.Desktop/fotoalbum.ico -c ${{ env.CH }} -o releases --delta none
+        # --delta none: starší vydání měla v názvu diakritiku (Fotokronika), se kterou vpk rozdílové balíčky neumí
+        run: vpk pack -u Fotoalbum.App -v ${{ env.VER }} -p out/Fotoalbum -e Fotoalbum.exe --packTitle "Fotokronika" --packAuthors Fotoalbum -i src/Fotoalbum.Desktop/fotoalbum.ico -c ${{ env.CH }} -o releases --delta none
 
       - name: Zveřejnit vydání
         shell: pwsh

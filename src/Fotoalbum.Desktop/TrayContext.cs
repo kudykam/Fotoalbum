@@ -36,17 +36,17 @@ internal sealed class TrayContext : ApplicationContext
         var autostart = new ToolStripMenuItem("Spouštět s Windows") { CheckOnClick = true, Checked = IsAutostart() };
         autostart.CheckedChanged += (_, _) => SetAutostart(autostart.Checked);
         var menu = new ContextMenuStrip { Font = new Font("Segoe UI", 11f) };
-        menu.Items.Add("Otevřít Fotokronikář", null, (_, _) => ShowWindow()).Font = new Font("Segoe UI", 11f, FontStyle.Bold);
+        menu.Items.Add("Otevřít Fotokroniku", null, (_, _) => ShowWindow()).Font = new Font("Segoe UI", 11f, FontStyle.Bold);
         menu.Items.Add("Zkopírovat fotky z karty", null, (_, _) => ScanAllDrives(userAsked: true));
         menu.Items.Add("Nastavení (správce)…", null, (_, _) => { ShowWindow(); _window?.ShowSettings(); });
         menu.Items.Add(autostart);
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Ukončit Fotokronikář", null, (_, _) => ExitApp());
+        menu.Items.Add("Ukončit Fotokroniku", null, (_, _) => ExitApp());
 
         _tray = new NotifyIcon
         {
             Icon = AppIcon.Load(SystemInformation.SmallIconSize),
-            Text = "Fotokronikář",
+            Text = "Fotokronika",
             ContextMenuStrip = menu,
             Visible = true,
         };
@@ -79,7 +79,7 @@ internal sealed class TrayContext : ApplicationContext
             _server.QuitRequested += () => _ui.Post(_ => _window?.CloseConfirmed(), null);
 
             var updatedTo = JustUpdatedTo();
-            if (updatedTo is not null) _tray.ShowBalloonTip(6000, "Fotokronikář", $"Fotokronikář byl aktualizován na verzi {updatedTo}.", ToolTipIcon.Info);
+            if (updatedTo is not null) _tray.ShowBalloonTip(6000, "Fotokronika", $"Fotokronika byla aktualizována na verzi {updatedTo}.", ToolTipIcon.Info);
             _updater = new Updater(_server.Service, updatedTo);
             _server.Options.Updates = _updater;
             // aktualizace se instaluje jen když okno není otevřené (nikdy uprostřed práce)
@@ -95,7 +95,7 @@ internal sealed class TrayContext : ApplicationContext
         catch (Exception e)
         {
             Log.Error(e);
-            MessageBox.Show("Fotokronikář se nepodařilo spustit: " + e.Message, "Fotokronikář", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Fotokroniku se nepodařilo spustit: " + e.Message, "Fotokronika", MessageBoxButtons.OK, MessageBoxIcon.Error);
             ExitThread();
         }
     }
@@ -118,7 +118,7 @@ internal sealed class TrayContext : ApplicationContext
             _window = null;
             if (_exitAfterWindowCloses) FinishExit();
             else if (_updater?.ApplyIfReady(Shutdown) == true) { /* program se aktualizuje a sám znovu spustí u hodin */ }
-            else _tray.ShowBalloonTip(4000, "Fotokronikář", "Vše je uloženo. Fotokronikář dál hlídá kartu z fotoaparátu – ikona je tady u hodin.", ToolTipIcon.Info);
+            else _tray.ShowBalloonTip(4000, "Fotokronika", "Vše je uloženo. Fotokronika dál hlídá kartu z fotoaparátu – ikona je tady u hodin.", ToolTipIcon.Info);
         };
         _window.Show();
     }
@@ -173,7 +173,7 @@ internal sealed class TrayContext : ApplicationContext
             Enqueue(d.RootDirectory.FullName, userAsked);
         }
         if (!found && userAsked)
-            _tray.ShowBalloonTip(5000, "Fotokronikář", "Není připojená žádná karta z fotoaparátu.", ToolTipIcon.Info);
+            _tray.ShowBalloonTip(5000, "Fotokronika", "Není připojená žádná karta z fotoaparátu.", ToolTipIcon.Info);
     }
 
     private void Enqueue(string drive, bool userAsked = false)
@@ -204,7 +204,7 @@ internal sealed class TrayContext : ApplicationContext
         var settings = _server!.Service.Settings;
         if (string.IsNullOrWhiteSpace(settings.PhotoRoot) || !Directory.Exists(settings.PhotoRoot))
         {
-            _tray.ShowBalloonTip(8000, "Fotokronikář", "Fotky z karty nelze zkopírovat: není nastavená složka s fotkami.", ToolTipIcon.Warning);
+            _tray.ShowBalloonTip(8000, "Fotokronika", "Fotky z karty nelze zkopírovat: není nastavená složka s fotkami.", ToolTipIcon.Warning);
             return;
         }
 

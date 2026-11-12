@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pracovna v2</title>
+<style>
+:root{--page:#dce3df;--win:#f5f7f5;--side:#e8eee9;--surface:#fff;--ink:#17201c;--muted:#52615a;--line:#c9d3cd;--accent:#2b684b;--accent-ink:#fff;--accent-soft:#d9eadf;--rec:#c22a2a;--rec-soft:#fbe2df;--warn:#8d5a0f;--warn-soft:#f6e8cf;--skip:#8f9a94;--sel:#f5b301;--manual:#3d6fa8;--stage:#0f1411;
+--ui:'Segoe UI',system-ui,sans-serif;--text:Georgia,'Cambria',serif}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0a0e0c;--win:#141a17;--side:#101512;--surface:#1b231f;--ink:#e6eee9;--muted:#9db0a5;--line:#2b3631;--accent:#74c59a;--accent-ink:#0b1810;--accent-soft:#1e392b;--rec:#ff716a;--rec-soft:#3b1c1a;--warn:#e6b25e;--warn-soft:#3a2c15;--stage:#060807}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--win);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.4}
+button{font:inherit;color:inherit}
+.app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr)}
+.bar{display:flex;align-items:center;gap:14px;padding:6px 12px 6px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
+.brand{font-weight:700;font-size:17px;display:flex;align-items:center;gap:8px}
+.logo{width:26px;height:26px;border-radius:6px;background:var(--accent)}
+.ver{font-size:13px;color:var(--muted)}.sp{flex:1}
+.close{border:1px solid var(--line);background:none;border-radius:8px;padding:7px 14px;font-size:15px}
+.body{display:grid;grid-template-columns:clamp(200px,15vw,270px) minmax(0,1fr) clamp(150px,10vw,190px);min-height:0}
+/* strom */
+.side{background:var(--side);border-right:1px solid var(--line);padding:10px 8px;display:flex;flex-direction:column;gap:2px;min-height:0}
+.side h2{margin:2px 8px 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.node{display:flex;gap:6px;align-items:center;padding:7px 8px;border-radius:7px;font-size:15px}
+.node .c{margin-left:auto;font-size:12px;opacity:.8}
+.node.cur{background:var(--accent);color:var(--accent-ink)}
+.node.sub{padding-left:24px}
+.tag{font-size:11px;font-weight:700;border-radius:99px;padding:0 7px;background:var(--warn-soft);color:var(--warn)}
+.node.cur .tag{background:var(--accent-ink);color:var(--accent)}
+.filters{margin-top:auto;border-top:1px solid var(--line);padding:8px 6px 0;display:grid;gap:4px;font-size:14px}
+.filters label{display:flex;gap:8px;align-items:center}
+.filters input{width:18px;height:18px;accent-color:var(--accent)}
+/* střed */
+.main{display:grid;grid-template-rows:minmax(0,1fr) auto;gap:10px;padding:10px 12px 12px;min-width:0;min-height:0}
+.stage{position:relative;background:var(--stage);border-radius:10px;overflow:hidden;display:grid;place-items:center;min-height:0}
+.stage .ph{height:100%;aspect-ratio:3/2;max-width:100%;background:linear-gradient(180deg,#f2a94a 0%,#e0713a 38%,#7b3d2e 62%,#2d2018 100%);position:relative}
+.stage .ph::after{content:"";position:absolute;left:52%;bottom:33%;width:9%;aspect-ratio:1;border-radius:50%;background:#ffe2a1;box-shadow:0 0 60px #ffd27a}
+.stage .ph::before{content:"";position:absolute;left:18%;bottom:30%;width:26%;height:18%;background:#1a120d;clip-path:polygon(48% 100%,52% 100%,53% 40%,100% 30%,90% 10%,60% 0,20% 5%,0 25%,47% 40%)}
+.chips{position:absolute;left:10px;top:10px;display:flex;gap:6px}
+.chip{background:rgba(10,14,12,.72);color:#f2f5f3;border-radius:99px;padding:4px 11px;font-size:14px}
+.chip.t{font-weight:700}
+.state{position:absolute;right:10px;top:10px;background:var(--accent);color:var(--accent-ink);border-radius:99px;padding:5px 13px;font-weight:700;font-size:14px}
+.state.draft{background:var(--warn-soft);color:var(--warn)}
+.nav{position:absolute;top:50%;transform:translateY(-50%);width:50px;height:80px;border:0;border-radius:10px;background:rgba(10,14,12,.5);color:#fff;font-size:30px}
+.nav.l{left:8px}.nav.r{right:8px}
+/* popisek pod fotkou */
+.cap{background:var(--surface);border:2px solid var(--line);border-radius:12px;padding:8px 12px 10px;display:grid;grid-template-columns:minmax(0,1fr) clamp(230px,17vw,300px);grid-template-rows:auto minmax(0,1fr) auto;gap:6px 14px;height:clamp(230px,33vh,330px)}
+.cap.rec{border-color:var(--rec);box-shadow:0 0 0 3px var(--rec-soft)}
+.cap-h{grid-column:1;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.mode{font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+.mode.r{background:var(--rec);color:#fff}
+.cap-h .s{margin-left:auto}
+.mini{border:1px solid var(--line);background:none;border-radius:7px;padding:3px 9px;font-size:13px;color:var(--muted)}
+.txt{grid-column:1;font-family:var(--text);font-size:clamp(17px,1.15vw,21px);line-height:1.5;overflow:auto;padding-right:4px}
+.txt .new{background:var(--rec-soft);border-radius:4px}
+.caret{display:inline-block;width:2px;height:1.1em;background:var(--rec);vertical-align:-2px;animation:bl 1s steps(2) infinite}
+@keyframes bl{50%{opacity:0}}
+.acts{grid-column:2;grid-row:1/4;display:flex;flex-direction:column;gap:8px}
+.b{display:flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--line);background:var(--surface);border-radius:10px;min-height:44px;font-size:15px;font-weight:600;padding:4px 10px;cursor:pointer}
+.b.mic{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);min-height:52px;font-size:17px}
+.b.mic.on{background:var(--rec);border-color:var(--rec)}
+.b.ai{border-color:var(--accent);color:var(--accent)}
+.b.ok{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);min-height:52px;font-size:16px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.foot{grid-column:1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.foot .b{min-height:38px;font-size:14px;border-width:1px}
+.foot .skip{border-style:dashed;border-color:var(--skip);background:var(--side)}
+.foot .sp{flex:1}
+/* svislý pás miniatur vpravo */
+.strip{border-left:1px solid var(--line);background:var(--side);display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:0}
+.prog{padding:10px 10px 6px;font-size:13px;color:var(--muted);text-align:center}
+.prog b{display:block;font-size:17px;color:var(--ink)}
+.bar2{height:8px;border-radius:99px;margin-top:6px;background:linear-gradient(90deg,var(--accent) 0 34%,var(--manual) 34% 38%,var(--skip) 38% 46%,var(--line) 46%)}
+.thumbs{overflow:auto;padding:4px 10px 8px;display:flex;flex-direction:column;gap:8px}
+.th{position:relative;flex:none;aspect-ratio:3/2;border-radius:7px;border:3px solid transparent;overflow:hidden}
+.th.sel{border-color:var(--sel);box-shadow:0 0 0 2px var(--sel)}
+.th .bd{position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;background:var(--accent)}
+.th .bd.m{background:var(--manual)}.th .bd.k{background:var(--skip)}
+.th.k{opacity:.6}
+.nextu{margin:0 10px 10px;font-size:14px;min-height:40px;border-width:1px}
+.legend{font-size:12px;color:var(--muted)}
+</style></head>
+<body>
+<div class="app">
+  <header class="bar"><div class="brand"><span class="logo"></span>Fotokronika</div><span class="ver">verze 0.3.0</span><span class="sp"></span><button class="close">⚙</button><button class="close">Zavřít program</button></header>
+  <div class="body">
+    <aside class="side">
+      <h2>Složky s fotkami</h2>
+      <div class="node">▸ 2024 léto <span class="c">212/212</span></div>
+      <div class="node">▸ 2024 podzim <span class="c">140/140</span></div>
+      <div class="node cur">▾ 2025 Keňa <span class="tag">Dovolená</span><span class="c">168/486</span></div>
+      <div class="node sub">Masai Mara <span class="c">92/240</span></div>
+      <div class="node sub">Mombasa <span class="c">76/246</span></div>
+      <div class="node">▸ 2025 zima <span class="c">0/310</span></div>
+      <div class="node">▸ 2026 jaro <span class="c">12/98</span></div>
+      <div class="filters"><label><input type="checkbox"> Jen nevyřízené fotky</label><label><input type="checkbox"> Ukázat jen dovolené</label></div>
+    </aside>
+    <main class="main">
+      <div class="stage"><div class="ph"></div>
+        <div class="chips"><span class="chip t">Západ slunce nad Masai Marou</span><span class="chip">14. 2. 2025 18:42</span></div>
+        <span class="state" id="st">✓ Popsáno</span>
+        <button class="nav l">‹</button><button class="nav r">›</button>
+      </div>
+      <section class="cap" id="cap">
+        <div class="cap-h"><span class="mode" id="mode">Popisek (po korektuře)</span><span id="stat"></span><span class="s">✓ Uloženo</span><button class="mini">Původní text</button><button class="mini">🗑 Smazat text</button></div>
+        <div class="txt" id="txt">Západ slunce nad Masai Marou v Keni. Při návratu z večerního safari zastavil řidič Joseph, aby bylo možné zachytit slunce za siluetou akácie. Ve stejnou chvíli se na obzoru objevilo stádo pakoňů, které táhlo k řece Mara.</div>
+        <div class="foot"><button class="b">‹ Předchozí</button><button class="b">Další ›</button><button class="b skip">⊖ Bez popisku – další fotka</button><span class="sp"></span><button class="b">↶ Zpět</button><button class="b">↷ Znovu</button><button class="b">⋯ Více</button></div>
+        <div class="acts">
+          <button class="b mic" id="mic">🎤 Diktovat</button>
+          <button class="b ai" id="ai">✨ Upravit znovu</button>
+          <button class="b ok">✓ Schválit a další fotka</button>
+          <div class="legend" id="hint">Text můžete kdykoli psát nebo opravovat přímo v poli.</div>
+        </div>
+      </section>
+    </main>
+    <aside class="strip">
+      <div class="prog"><b>169 / 486</b>popsáno<div class="bar2"></div></div>
+      <div class="thumbs" id="thumbs"></div>
+      <button class="b nextu">» Další nepopsaná</button>
+    </aside>
+  </div>
+</div>
+<script>
+const cols=["#3a6b8a","#a0623a","#5d7a3a","#7a4a6b","#2f5a4a","#b08a3a","#4a4a7a","#8a3a3a"];
+let h="";for(let i=0;i<12;i++){const s=i<5?"":i==5?"m":i==6?"k":"x";h+=`<div class="th ${i==4?'sel':''} ${s=='k'?'k':''}" style="background:linear-gradient(160deg,${cols[i%8]},#111)">${s==''?'<span class="bd">✓</span>':s=='m'?'<span class="bd m">✍</span>':s=='k'?'<span class="bd k">–</span>':''}</div>`}
+document.getElementById("thumbs").innerHTML=h;
+if(location.hash=="#rec"){
+  document.getElementById("cap").classList.add("rec");
+  document.getElementById("mode").className="mode r";document.getElementById("mode").textContent="● Diktujete 0:24";
+  document.getElementById("stat").textContent="mluvte, text se objeví po větách";
+  document.getElementById("st").className="state draft";document.getElementById("st").textContent="✎ Rozepsáno";
+  document.getElementById("txt").innerHTML='Tak tohle je, to bylo v Keni, ne počkej, už Tanzanie, ne, Keňa, Masai Mara, večer, když jsme se vraceli ze safari a slunce zapadalo za akácii. Řidič Joseph tam zastavil, <span class="new">a pak tam táhlo to stádo pakoňů k řece</span><span class="caret"></span>';
+  const m=document.getElementById("mic");m.classList.add("on");m.textContent="■ Zastavit 0:24";
+  document.getElementById("ai").textContent="✨ Korektura";
+  document.querySelector(".s").textContent="";
+}
+</script>
+</body></html>

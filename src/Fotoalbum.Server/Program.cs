@@ -19,7 +19,7 @@ var quit = new TaskCompletionSource();
 server.QuitRequested += () => quit.TrySetResult();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; quit.TrySetResult(); };
 
-Console.WriteLine("Fotokronikář běží. Otevřete v prohlížeči:");
+Console.WriteLine("Fotokronika běží. Otevřete v prohlížeči:");
 Console.WriteLine(server.StartUrl);
 await quit.Task;
 server.Service.Shutdown();

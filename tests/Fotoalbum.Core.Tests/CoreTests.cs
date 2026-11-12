@@ -420,4 +420,17 @@ public class RenameTests
         Assert.False(Directory.Exists(System.IO.Path.Combine(t.Path, "A", PhotoLibrary.PreviousDatabaseFolder)));
         Assert.True(PhotoLibrary.IsIgnoredDir(PhotoLibrary.PreviousDatabaseFolder));
     }
+
+    [Fact]
+    public void Servisni_slozka_Fotokronikare_se_prejmenuje_na_Fotokroniku()
+    {
+        using var t = new TempDir();
+        t.Sub("A", PhotoLibrary.KronikarDatabaseFolder, "zaloha");
+        var lib = new PhotoLibrary(System.IO.Path.Combine(t.Path, "A"));
+        lib.MigrateServiceFolders();
+        Assert.EndsWith("Fotokronika – databáze (nemazat)", lib.DatabaseDir);
+        Assert.True(Directory.Exists(System.IO.Path.Combine(lib.DatabaseDir, "zaloha")));
+        Assert.False(Directory.Exists(System.IO.Path.Combine(t.Path, "A", PhotoLibrary.KronikarDatabaseFolder)));
+        Assert.True(PhotoLibrary.IsIgnoredDir(PhotoLibrary.KronikarDatabaseFolder));
+    }
 }

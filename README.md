@@ -1,4 +1,4 @@
-# Fotokronikář
+# Fotokronika
 
 *(repozitář a vnitřní názvy projektů zůstávají „Fotoalbum“)*
 
@@ -22,7 +22,7 @@ Hotovo:
 - stavy fotky: popsáno, bez popisku (klávesa **B**), označeno ke smazání,
 - mazání jen do koše Windows a až po potvrzení při zavření programu,
 - pokračování tam, kde se minule skončilo,
-- záloha databáze do složky `Fotoalbum – databáze (nemazat)\zaloha` ve složce s fotkami (zálohuje ji Synology Drive),
+- záloha databáze do složky `Fotokronika – databáze (nemazat)\zaloha` ve složce s fotkami (zálohuje ji Synology Drive),
 - úpravy po prvním testu (specifikace 2.7): štítek „Dovolená“, popisek se ukládá až při další akci, Zpět/Znovu po celých akcích,
   tlačítko „Bez popisku – další fotka“, nadpis fotky (Windows „Název“), vlastní ikona.
 
@@ -30,7 +30,7 @@ Hotovo:
 Po zasunutí karty z fotoaparátu do čtečky (DCIM/100_PANA…) samo zkopíruje nové fotky a videa do složek „rok období“
 (např. „2026 léto“; „2026 zima“ = prosinec 2026 až únor 2027) a ukáže průběh. Karta se nemění. „Zavřít program“ zavře okno, úplné ukončení je v menu ikony.
 
-**Diktování a korektura (etapa 2):** 🎤 Diktovat (F2) – otevře velké okno a hned nahrává, přepis řeči po větách, „Schválit a další fotka“, ✨ Korektura – pěkný popisek ve stylu cestopisu
+**Diktování a korektura (etapa 2):** 🎤 Diktovat (F2) – přepis řeči po větách do pole pod fotkou, „Schválit a další fotka“, ✨ Korektura – pěkný popisek ve stylu cestopisu
 a krátký nadpis, „Diktovat úpravu“ pro hlasové opravy. AI přes OpenRouter, klíč v nastavení správce (Ctrl+Alt+S),
 uložený šifrovaně jen v počítači. Pro vývoj bez internetu: `FOTOALBUM_FAKE_AI=1` (náhradní odpovědi).
 
@@ -43,7 +43,7 @@ Další etapy (knihovna alb, čtení, tablet, televize) – viz specifikace, kap
 | Předchozí / další fotka | šipky na fotce, tlačítka, klávesy ← → (mimo psaní), PageUp / PageDown (i při psaní) |
 | Bez popisku (a hned další fotka) | tlačítko „Bez popisku – další fotka“, klávesa **B** |
 | Zpět / Znovu (celé akce) | tlačítka, Ctrl+Z / Ctrl+Y (mimo psaní) |
-| Nastavení (složka s fotkami) | **Ctrl+Alt+S** – pro správce |
+| Nastavení (složka s fotkami, velikost písma) | ⚙ v záhlaví, **Ctrl+Alt+S** |
 
 ## Struktura
 
