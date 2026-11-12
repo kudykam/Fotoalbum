@@ -38,6 +38,7 @@ internal sealed class TrayContext : ApplicationContext
         var menu = new ContextMenuStrip { Font = new Font("Segoe UI", 11f) };
         menu.Items.Add("Otevřít Fotoalbum", null, (_, _) => ShowWindow()).Font = new Font("Segoe UI", 11f, FontStyle.Bold);
         menu.Items.Add("Zkopírovat fotky z karty", null, (_, _) => ScanAllDrives(userAsked: true));
+        menu.Items.Add("Nastavení (správce)…", null, (_, _) => { ShowWindow(); _window?.ShowSettings(); });
         menu.Items.Add(autostart);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Ukončit Fotoalbum", null, (_, _) => ExitApp());

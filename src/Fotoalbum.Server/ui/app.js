@@ -395,6 +395,9 @@ $("track").onclick = e => {
 function renderStage(newPhoto) {
   const p = cur(), st = $("stage"), img = $("photo");
   st.querySelectorAll(".delband,.empty").forEach(n => n.remove());
+  const stEl = $("state");
+  const stInfo = p ? ({ done: ["done", "✓ Popsáno"], draft: ["draft", "✎ Rozepsáno"], skip: ["skip", "– Bez popisku"], del: ["del", "✕ Ke smazání"] })[p.status] : null;
+  stEl.className = "state " + (stInfo ? stInfo[0] : ""); stEl.textContent = stInfo ? stInfo[1] : "";
   if (!p) {
     img.hidden = true; $("meta").innerHTML = "";
     const e = document.createElement("div"); e.className = "empty";
@@ -411,8 +414,7 @@ function renderStage(newPhoto) {
   // záhlaví: nadpis z popisku (jakmile existuje), jinak název souboru
   $("meta").innerHTML = (p.title ? `<span class="chip title" title="${esc(p.name)}">${esc(p.title)}</span>` : `<span class="chip">${esc(p.name)}</span>`)
     + (p.date ? `<span class="chip">${fmtDate(p.date)}</span>` : "")
-    + `<span class="chip">${esc(n ? (n.name || "Všechny fotky") : "")}</span>`
-    + (p.status === "skip" ? '<span class="chip skipc">bez popisku</span>' : "");
+    + `<span class="chip">${esc(n ? (n.name || "Všechny fotky") : "")}</span>`;
   if (p.status === "del") {
     // jen nápis přes fotku – nečeká na žádné kliknutí
     const m = document.createElement("div"); m.className = "delband";
@@ -513,7 +515,8 @@ function rotate() { const p = S.cur; if (p) setFlags({ rotation: (p.rotation + 9
 async function clearCaption() {
   const p = S.cur; if (!p || !$("ta").value || S.busy) return;
   await run(async () => {
-    const before = S.saved;
+    // i neuložený (právě napsaný) text jde tlačítkem Zpět vrátit
+    const before = $("ta").value;
     await saveCaption(p, "");
     $("ta").value = ""; draftClear();
     record({ t: "caption", path: p.path, before, after: "" });
@@ -558,8 +561,15 @@ async function quit(moveToBin) {
     if (S.host !== "pc") modal(`<h3>Fotoalbum je zavřené</h3><p>Vše je uložené. Okno prohlížeče můžete zavřít.</p>`, () => {});
   } catch (e) { $("modalHost").innerHTML = ""; fail(e); }
 }
+/** Skryté nastavení pro správce (Ctrl+Alt+S nebo menu ikony u hodin). */
+async function openSettings() {
+  try { const r = await api("GET", "/api/state"); S.state = r.state; renderApp(r.app); } catch { }
+  closeMenu(); $("modalHost").innerHTML = "";
+  showSetup(false);
+}
 window.fotoalbum = {
   requestClose,
+  showSettings: openSettings,
   // volá Windows aplikace po zkopírování fotek z karty – strom složek se obnoví
   refreshFolders: () => { if (S.state && S.state.configured && !$("work").hidden) loadTree().then(() => toast("Z karty přibyly nové fotky – najdete je ve stromu složek.")).catch(() => {}); },
 };
@@ -588,7 +598,8 @@ $("ta").addEventListener("input", () => {
 document.addEventListener("keydown", e => {
   if ($("modalHost").innerHTML) return;
   if (e.key === "Escape") { closeMenu(); return; }
-  if (e.ctrlKey && e.altKey && (e.key === "s" || e.key === "S")) { e.preventDefault(); showSetup(false); return; }
+  // Ctrl+Alt+S – na české klávesnici je Ctrl+Alt = AltGr a e.key je „đ“, proto podle fyzické klávesy
+  if (e.ctrlKey && e.altKey && e.code === "KeyS") { e.preventDefault(); openSettings(); return; }
   if ($("work").hidden) return;
   if (e.key === "PageUp") { e.preventDefault(); step(-1); return; }
   if (e.key === "PageDown") { e.preventDefault(); step(1); return; }

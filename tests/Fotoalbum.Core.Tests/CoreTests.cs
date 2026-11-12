@@ -376,3 +376,33 @@ public class Stage1FeedbackTests
         Assert.Null(FolderKind.Normalize("nesmysl"));
     }
 }
+
+public class IptcLimitTests
+{
+    [Fact]
+    public void Dlouhy_popisek_se_do_IPTC_zkrati_ale_jinde_zustane_cely()
+    {
+        using var t = new TempDir();
+        var file = TestImages.Create(System.IO.Path.Combine(t.Path, "a.jpg"));
+        var longText = string.Join(" ", Enumerable.Repeat("Západ slunce nad Masai Marou, řidič zastavil u akácie.", 60));
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(longText) > 2000);
+
+        Exif.Tool.WriteCaption(file, longText);
+
+        var iptc = Exif.Raw("-charset", "iptc=utf8", "-s3", "-IPTC:Caption-Abstract", file).TrimEnd('\n', '\r');
+        var title = Exif.Raw("-charset", "iptc=utf8", "-s3", "-IPTC:ObjectName", file).TrimEnd('\n', '\r');
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(iptc) <= 2000);
+        Assert.EndsWith("…", iptc);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(title) <= 64);
+        Assert.Equal(longText, Exif.Tool.Read([file]).Single().Caption); // čte se celý (XMP)
+        Assert.Equal(longText, Exif.Raw("-s3", "-IFD0:XPSubject", file).TrimEnd('\n', '\r'));
+    }
+
+    [Fact]
+    public void Utf8Limit_neroztrhne_znak()
+    {
+        var s = ExifTool.Utf8Limit(new string('ř', 50), 64);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(s) <= 64);
+        Assert.EndsWith("…", s);
+    }
+}

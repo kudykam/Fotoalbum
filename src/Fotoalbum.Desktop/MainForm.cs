@@ -15,6 +15,8 @@ internal sealed class MainForm : Form
     private readonly RunningServer _server;
     private bool _allowClose;
     private DateTime _closeAskedAt = DateTime.MinValue;
+    private bool _loaded;
+    private bool _settingsPending;
 
     public MainForm(RunningServer server)
     {
@@ -45,6 +47,11 @@ internal sealed class MainForm : Form
             {
                 if (!a.Uri.StartsWith(_server.BaseUrl, StringComparison.OrdinalIgnoreCase)) a.Cancel = true;
             };
+            core.NavigationCompleted += async (_, _) =>
+            {
+                _loaded = true;
+                if (_settingsPending) { _settingsPending = false; await Task.Delay(800); ShowSettings(); }
+            };
             core.Navigate(_server.StartUrl);
         }
         catch (WebView2RuntimeNotFoundException)
@@ -66,6 +73,13 @@ internal sealed class MainForm : Form
     {
         _allowClose = true;
         Close();
+    }
+
+    /// <summary>Otevře skryté nastavení (správce) – z menu ikony u hodin.</summary>
+    public void ShowSettings()
+    {
+        if (!_loaded || _web.CoreWebView2 is null) { _settingsPending = true; return; }
+        _ = _web.CoreWebView2.ExecuteScriptAsync("window.fotoalbum && window.fotoalbum.showSettings && window.fotoalbum.showSettings()");
     }
 
     /// <summary>Po zkopírování fotek z karty obnoví strom složek, pokud je okno otevřené.</summary>

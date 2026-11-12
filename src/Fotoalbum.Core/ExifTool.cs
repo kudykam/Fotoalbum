@@ -123,26 +123,51 @@ public sealed class ExifTool
     /// </summary>
     public void WriteCaption(string fullPath, string caption, string? title = null)
     {
-        var value = EscapeC(caption.Trim());
-        var t = EscapeC((title ?? CaptionTitle.From(caption) ?? "").Trim());
+        var full = caption.Trim();
+        var shortTitle = (title ?? CaptionTitle.From(caption) ?? "").Trim();
+        var value = EscapeC(full);
+        var t = EscapeC(shortTitle);
+        // IPTC má pevné limity (popis 2000 bajtů, název 64 bajtů). Delší text Windows neumí přečíst
+        // a pak nezobrazí vůbec nic – proto se do IPTC dává zkrácená verze, celý text je v XMP a EXIF.
+        var iptcCaption = EscapeC(Utf8Limit(full, 2000));
+        var iptcTitle = EscapeC(Utf8Limit(shortTitle, 64));
         var args = new List<string>
         {
             "-overwrite_original", "-m", "-ec",
             "-charset", "filename=utf8", "-charset", "exif=utf8", "-charset", "iptc=utf8",
             "-IPTC:CodedCharacterSet=UTF8",
             "-XMP-dc:Description=" + value,
-            "-IPTC:Caption-Abstract=" + value,
+            "-IPTC:Caption-Abstract=" + iptcCaption,
             "-IFD0:ImageDescription=" + value,
             "-IFD0:XPSubject=" + value,
             "-IFD0:XPComment=" + value,
             "-XMP-dc:Title=" + t,
-            "-IPTC:ObjectName=" + t,
+            "-IPTC:ObjectName=" + iptcTitle,
             "-IFD0:XPTitle=" + t,
             fullPath,
         };
         var (code, output, error) = Run(args, Timeout);
         if (code != 0 || !output.Contains("1 image files updated") && !output.Contains("1 image files unchanged"))
             throw new IOException("Popisek se nepodařilo zapsat do fotky: " + (error.Trim().Length > 0 ? error.Trim() : output.Trim()));
+    }
+
+    /// <summary>Zkrátí text tak, aby v UTF-8 nepřesáhl daný počet bajtů (na hranici slova, s „…“).</summary>
+    public static string Utf8Limit(string text, int maxBytes)
+    {
+        if (System.Text.Encoding.UTF8.GetByteCount(text) <= maxBytes) return text;
+        var budget = maxBytes - 3; // „…“ má 3 bajty
+        var sb = new System.Text.StringBuilder();
+        var used = 0;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            if (used + rune.Utf8SequenceLength > budget) break;
+            sb.Append(rune.ToString());
+            used += rune.Utf8SequenceLength;
+        }
+        var cut = sb.ToString();
+        var space = cut.LastIndexOf(' ');
+        if (space > cut.Length / 2) cut = cut[..space];
+        return cut.TrimEnd(' ', ',', ';', ':', '.') + "…";
     }
 
     public static string? Clean(string? s)
