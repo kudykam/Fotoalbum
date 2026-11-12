@@ -3,9 +3,15 @@ name: Vydání (aktualizace)
 # Vydání se spustí značkou (tagem):
 #   v0.3.0-test.1  -> testovací kanál (pre-release, jen pro správce)
 #   v0.3.0         -> stabilní kanál (schválená verze, dostane ji děda)
+# Lze spustit i ručně v záložce Actions (Spustit workflow) – značku pak vytvoří vydání samo.
 on:
   push:
     tags: [ "v*" ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Verze, např. 0.3.0-test.1 (testovací) nebo 0.3.0 (stabilní)"
+        required: true
 
 permissions:
   contents: write
@@ -28,7 +34,8 @@ jobs:
       - name: Verze a kanál ze značky
         shell: pwsh
         run: |
-          $ver = "${{ github.ref_name }}".TrimStart('v')
+          $ver = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.version }}" } else { "${{ github.ref_name }}".TrimStart('v') }
+          if ($ver -notmatch '^\d+\.\d+\.\d+(-test\.\d+)?$') { throw "Neplatná verze: $ver" }
           $ch = if ($ver -match '-test') { 'test' } else { 'stable' }
           "VER=$ver" >> $env:GITHUB_ENV
           "CH=$ch" >> $env:GITHUB_ENV
@@ -75,6 +82,6 @@ jobs:
         shell: pwsh
         run: |
           $a = @('upload','github','--repoUrl',"https://github.com/${{ github.repository }}",'--token','${{ secrets.GITHUB_TOKEN }}',
-                    '--channel',$env:CH,'-o','releases','--publish','--releaseName',"Fotoalbum $env:VER",'--tag','${{ github.ref_name }}')
+                    '--channel',$env:CH,'-o','releases','--publish','--releaseName',"Fotoalbum $env:VER",'--tag',"v$env:VER",'--targetCommitish','${{ github.sha }}')
           if ($env:CH -eq 'test') { $a += '--pre' }
           vpk @a
