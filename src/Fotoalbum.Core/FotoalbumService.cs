@@ -7,18 +7,29 @@ public sealed record FolderDto(string Path, string Name, string Kind, bool KindI
     List<FolderDto> Children);
 
 public sealed record PhotoDto(string Path, string Name, string? Date, string Status, string Caption, bool IsDraft,
-    int Rotation, bool Everyday, bool? EverydayOverride, bool WritePending, string? WriteError);
+    int Rotation, bool Vacation, string? Title, bool WritePending, string? WriteError);
 
 public sealed record FolderPhotosDto(string Folder, string? LastPhoto, List<PhotoDto> Photos);
 
-public sealed record TrashItemDto(string Path, string Name);
+public sealed record TrashItemDto(string Path, string Name, string Album);
 
-/// <summary>Druh složky: cestovní (výchozí) nebo běžné fotky.</summary>
+/// <summary>
+/// Druh složky: běžné fotky (výchozí, bez štítku) nebo dovolená (štítek „Dovolená“).
+/// Nastavuje se celé složce; podsložky ho dědí.
+/// </summary>
 public static class FolderKind
 {
-    public const string Travel = "cestovni";
+    public const string Vacation = "dovolena";
     public const string Everyday = "bezne";
-    public static bool IsValid(string? k) => k is Travel or Everyday;
+    /// <summary>Starší hodnota z první verze – znamená dovolenou.</summary>
+    private const string LegacyTravel = "cestovni";
+
+    public static string? Normalize(string? k) => k switch
+    {
+        Vacation or LegacyTravel => Vacation,
+        Everyday => Everyday,
+        _ => null,
+    };
 }
 
 /// <summary>Jediný vstupní bod pro rozhraní (PC i později tablet). Drží knihovnu, databázi, ExifTool a zapisovač.</summary>
@@ -59,7 +70,7 @@ public sealed class FotoalbumService : IDisposable
             var root = _settings.Current.PhotoRoot;
             _library = null;
             if (string.IsNullOrWhiteSpace(root)) return;
-            try { _library = new PhotoLibrary(root); }
+            try { _library = new PhotoLibrary(root); _library.MigrateServiceFolders(); }
             catch (DirectoryNotFoundException) { _problem = $"Složka s fotkami „{root}“ není dostupná. Je připojený disk?"; }
         }
     }
@@ -94,12 +105,12 @@ public sealed class FotoalbumService : IDisposable
         var node = lib.ScanTree();
         var recs = Db.GetPhotos(node.AllPhotoPaths());
         var kinds = Db.GetFolderKinds();
-        return Map(node, FolderKind.Travel);
+        return Map(node, FolderKind.Everyday);
 
         FolderDto Map(FolderNode n, string parentKind)
         {
-            var own = kinds.GetValueOrDefault(n.Path);
-            var kind = FolderKind.IsValid(own) ? own! : parentKind;
+            var own = FolderKind.Normalize(kinds.GetValueOrDefault(n.Path));
+            var kind = own ?? parentKind;
             var children = n.Children.Select(c => Map(c, kind)).ToList();
             int done = 0, handled = 0, total = 0;
             foreach (var p in n.PhotoPaths)
@@ -121,8 +132,8 @@ public sealed class FotoalbumService : IDisposable
         var f = folder;
         while (true)
         {
-            if (kinds.TryGetValue(f, out var k) && FolderKind.IsValid(k)) return k;
-            if (f.Length == 0) return FolderKind.Travel;
+            if (kinds.TryGetValue(f, out var k) && FolderKind.Normalize(k) is { } kind) return kind;
+            if (f.Length == 0) return FolderKind.Everyday;
             var i = f.LastIndexOf('/');
             f = i < 0 ? "" : f[..i];
         }
@@ -131,7 +142,7 @@ public sealed class FotoalbumService : IDisposable
     public void SetFolderKind(string folder, string? kind)
     {
         Library.Resolve(folder);
-        Db.SetFolderKind(folder, FolderKind.IsValid(kind) ? kind : null);
+        Db.SetFolderKind(folder, FolderKind.Normalize(kind));
     }
 
     /// <summary>Otevře složku: načte popisky a data ze souborů, které ještě neznáme nebo se změnily.</summary>
@@ -184,10 +195,10 @@ public sealed class FotoalbumService : IDisposable
         return GetPhoto(path);
     }
 
-    public PhotoDto SetFlags(string path, bool? skip, bool? markedDelete, int? rotation, bool? everyday, bool clearEveryday)
+    public PhotoDto SetFlags(string path, bool? skip, bool? markedDelete, int? rotation)
     {
         EnsurePhoto(path);
-        Db.SetFlags(path, skip, markedDelete, rotation, everyday, clearEveryday);
+        Db.SetFlags(path, skip, markedDelete, rotation);
         return GetPhoto(path);
     }
 
@@ -214,7 +225,15 @@ public sealed class FotoalbumService : IDisposable
     // ---------- mazání ----------
 
     public List<TrashItemDto> MarkedForDelete() =>
-        Db.GetMarkedForDelete().Select(r => new TrashItemDto(r.Path, Path.GetFileName(r.Path))).ToList();
+        Db.GetMarkedForDelete().Select(r => new TrashItemDto(r.Path, Path.GetFileName(r.Path), AlbumName(ParentOf(r.Path)))).ToList();
+
+    /// <summary>Název alba pro uživatele: „Afrika 1998 · Keňa“ (poslední dvě úrovně složek).</summary>
+    public static string AlbumName(string folder)
+    {
+        if (folder.Length == 0) return "Všechny fotky";
+        var parts = folder.Split('/');
+        return parts.Length == 1 ? parts[0] : $"{parts[^2]} · {parts[^1]}";
+    }
 
     /// <summary>Při zavření: přesunout označené fotky do koše, nebo jim zrušit označení.</summary>
     public int ResolveMarked(bool moveToBin)
@@ -235,12 +254,13 @@ public sealed class FotoalbumService : IDisposable
 
     // ---------- záloha a ukončení ----------
 
-    /// <summary>Konzistentní záloha databáze do <c>_fotoalbum/zaloha</c> ve složce s fotkami (zálohuje ji Synology Drive).</summary>
+    /// <summary>Konzistentní záloha databáze do „Fotoalbum – databáze (nemazat)/zaloha“ ve složce s fotkami (zálohuje ji Synology Drive).</summary>
     public string? BackupCatalog()
     {
         var lib = _library;
         if (lib is null) return null;
-        var dir = Path.Combine(lib.Root, "_fotoalbum", "zaloha");
+        lib.MigrateServiceFolders();
+        var dir = Path.Combine(lib.DatabaseDir, "zaloha");
         var file = Path.Combine(dir, $"katalog-{DateTime.Now:yyyy-MM-dd_HHmmss}.db");
         Db.BackupTo(file);
         foreach (var old in Directory.GetFiles(dir, "katalog-*.db").OrderDescending().Skip(Math.Max(1, Settings.BackupsToKeep)))
@@ -277,7 +297,7 @@ public sealed class FotoalbumService : IDisposable
             PhotoStatus.MarkedDelete => "del", _ => "none",
         };
         return new PhotoDto(path, Path.GetFileName(path), r.DateTaken, status, r.Caption, r.IsDraft, r.Rotation,
-            r.Everyday ?? folderKind == FolderKind.Everyday, r.Everyday, r.NeedsFileWrite, r.WriteError);
+            folderKind == FolderKind.Vacation, r.IsDraft ? null : CaptionTitle.From(r.Caption), r.NeedsFileWrite, r.WriteError);
     }
 
     public void Dispose()

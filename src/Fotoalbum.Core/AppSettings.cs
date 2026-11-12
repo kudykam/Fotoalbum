@@ -11,7 +11,7 @@ public sealed class AppSettings
     /// <summary>Volitelná cesta k exiftool(.exe). Prázdné = hledá se vedle aplikace a v PATH.</summary>
     public string? ExifToolPath { get; set; }
 
-    /// <summary>Kolik posledních záloh databáze ponechat ve složce _fotoalbum/zaloha.</summary>
+    /// <summary>Kolik posledních záloh databáze ponechat ve složce „Fotoalbum – databáze (nemazat)/zaloha“.</summary>
     public int BackupsToKeep { get; set; } = 10;
 
     /// <summary>Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky (Fotoalbum běží na pozadí u hodin).</summary>

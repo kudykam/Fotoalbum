@@ -31,6 +31,7 @@ internal sealed class ImportProgressForm : Form
         _drive = drive;
         _library = library;
         Text = "Fotoalbum – fotky z karty";
+        Icon = TrayContext.AppIcon.Load(new Size(32, 32));
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = MinimizeBox = false;
         ShowInTaskbar = true;

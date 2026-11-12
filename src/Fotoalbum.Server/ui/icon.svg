@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Fotoalbum: fotka v rámečku s perem (popisování) -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34795a"/>
+      <stop offset="1" stop-color="#1f5039"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9fd0ec"/>
+      <stop offset="1" stop-color="#e3f2f8"/>
+    </linearGradient>
+    <clipPath id="photo"><rect x="58" y="58" width="128" height="100" rx="6"/></clipPath>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#bg)"/>
+  <g transform="rotate(-7 122 120)">
+    <rect x="44" y="44" width="156" height="152" rx="12" fill="#ffffff"/>
+    <g clip-path="url(#photo)">
+      <rect x="58" y="58" width="128" height="100" fill="url(#sky)"/>
+      <circle cx="152" cy="88" r="15" fill="#f3b34f"/>
+      <path d="M58 140 L94 104 L120 128 L142 110 L186 146 L186 158 L58 158 Z" fill="#4f9a6c"/>
+      <path d="M58 158 L58 146 Q100 130 140 146 T186 150 L186 158 Z" fill="#2f6e4c"/>
+    </g>
+    <rect x="58" y="170" width="76" height="7" rx="3.5" fill="#c9d3cd"/>
+  </g>
+  <!-- pero -->
+  <g transform="rotate(42 186 178)">
+    <rect x="174" y="104" width="24" height="96" rx="6" fill="#f6e8cf"/>
+    <rect x="174" y="104" width="24" height="18" rx="6" fill="#e6b25e"/>
+    <path d="M174 196 L198 196 L186 224 Z" fill="#f6e8cf"/>
+    <path d="M181 210 L191 210 L186 224 Z" fill="#17201c"/>
+    <rect x="174" y="188" width="24" height="8" fill="#e6b25e"/>
+  </g>
+</svg>

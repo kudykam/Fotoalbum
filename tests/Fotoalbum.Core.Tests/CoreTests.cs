@@ -22,6 +22,8 @@ public class PhotoLibraryTests
         TestImages.Create(System.IO.Path.Combine(t.Path, "Afrika 1998", "Keňa", "a.jpg"));
         TestImages.Create(System.IO.Path.Combine(t.Path, "Afrika 1998", "Keňa", "b.JPG"));
         TestImages.Create(System.IO.Path.Combine(t.Path, "_originaly", "c.jpg"));
+        TestImages.Create(System.IO.Path.Combine(t.Path, PhotoLibrary.DatabaseFolder, "kos", "x.jpg"));
+        TestImages.Create(System.IO.Path.Combine(t.Path, PhotoLibrary.OriginalsFolder, "y.jpg"));
         TestImages.Create(System.IO.Path.Combine(t.Path, "@eaDir", "d.jpg"));
         TestImages.Create(System.IO.Path.Combine(t.Path, "Prázdná", "neni-fotka.jpg.txt"));
 
@@ -249,17 +251,17 @@ public class FotoalbumServiceTests
         using (t) using (s)
         {
             s.OpenFolder("Afrika");
-            s.SetFlags("Afrika/IMG_1.jpg", null, true, null, null, false);
+            s.SetFlags("Afrika/IMG_1.jpg", null, true, null);
             Assert.Single(s.MarkedForDelete());
 
             Assert.Equal(0, s.ResolveMarked(moveToBin: false));
             Assert.Empty(s.MarkedForDelete());
             Assert.True(File.Exists(s.Library.Resolve("Afrika/IMG_1.jpg")));
 
-            s.SetFlags("Afrika/IMG_1.jpg", null, true, null, null, false);
+            s.SetFlags("Afrika/IMG_1.jpg", null, true, null);
             Assert.Equal(1, s.ResolveMarked(moveToBin: true));
             Assert.False(File.Exists(s.Library.Resolve("Afrika/IMG_1.jpg")));
-            Assert.Single(Directory.GetFiles(System.IO.Path.Combine(s.Library.Root, "_fotoalbum", "kos"), "IMG_1.jpg", SearchOption.AllDirectories));
+            Assert.Single(Directory.GetFiles(System.IO.Path.Combine(s.Library.Root, PhotoLibrary.DatabaseFolder, "kos"), "IMG_1.jpg", SearchOption.AllDirectories));
             Assert.Single(s.OpenFolder("Afrika").Photos);
         }
     }
@@ -270,15 +272,18 @@ public class FotoalbumServiceTests
         var (t, s) = Setup();
         using (t) using (s)
         {
-            s.SetFolderKind("Doma", FolderKind.Everyday);
+            s.SetFolderKind("Afrika", FolderKind.Vacation);
             s.OpenFolder("Afrika");
-            s.SetFlags("Afrika/IMG_1.jpg", true, null, null, null, false);
+            s.SetFlags("Afrika/IMG_1.jpg", true, null, null);
 
             var tree = s.GetTree();
             var afrika = tree.Children.Single(c => c.Name == "Afrika");
             Assert.Equal((2, 2, 1), (afrika.Total, afrika.Handled, afrika.Done));
+            // výchozí druh je běžná složka, dovolenou označí uživatel
             Assert.Equal(FolderKind.Everyday, tree.Children.Single(c => c.Name == "Doma").Kind);
-            Assert.True(s.OpenFolder("Doma").Photos.Single().Everyday);
+            Assert.Equal(FolderKind.Vacation, afrika.Kind);
+            Assert.False(s.OpenFolder("Doma").Photos.Single().Vacation);
+            Assert.True(s.OpenFolder("Afrika").Photos.First().Vacation);
         }
     }
 
@@ -295,7 +300,7 @@ public class FotoalbumServiceTests
 
             var backup = s.BackupCatalog();
             Assert.True(File.Exists(backup));
-            Assert.StartsWith(System.IO.Path.Combine(s.Library.Root, "_fotoalbum", "zaloha"), backup);
+            Assert.StartsWith(System.IO.Path.Combine(s.Library.Root, PhotoLibrary.DatabaseFolder, "zaloha"), backup);
         }
     }
 
@@ -307,5 +312,67 @@ public class FotoalbumServiceTests
         {
             Assert.Throws<UnauthorizedAccessException>(() => s.SaveCaption("../data/katalog.db", "x", false));
         }
+    }
+}
+
+public class Stage1FeedbackTests
+{
+    [Theory]
+    [InlineData("Západ slunce nad Masai Marou v Keni. Řidič zastavil.", "Západ slunce nad Masai Marou v Keni")]
+    [InlineData("Sloni u napajedla", "Sloni u napajedla")]
+    [InlineData("Ve 3. dnu jsme dojeli. Pak pršelo.", "Ve 3. dnu jsme dojeli")]
+    [InlineData("", null)]
+    public void Nadpis_je_prvni_veta(string caption, string? expected) => Assert.Equal(expected, CaptionTitle.From(caption));
+
+    [Fact]
+    public void Dlouhy_nadpis_se_zkrati_na_cela_slova()
+    {
+        var t = CaptionTitle.From(string.Join(' ', Enumerable.Repeat("slovo", 40)))!;
+        Assert.True(t.Length <= CaptionTitle.MaxLength);
+        Assert.EndsWith("slovo…", t);
+    }
+
+    [Fact]
+    public void Do_fotky_se_zapise_nadpis_a_cely_popisek_do_poli_Windows()
+    {
+        using var t = new TempDir();
+        var file = TestImages.Create(System.IO.Path.Combine(t.Path, "a.jpg"));
+        Exif.Tool.WriteCaption(file, "Západ slunce nad Masai Marou. Řidič Joseph zastavil.");
+        var raw = Exif.Raw("-s", "-s", "-XPTitle", "-XPSubject", "-XPComment", "-XMP-dc:Title", "-ImageDescription", file);
+        Assert.Contains("XPTitle: Západ slunce nad Masai Marou", raw);
+        Assert.Contains("XPSubject: Západ slunce nad Masai Marou. Řidič Joseph zastavil.", raw);
+        Assert.Contains("XPComment: Západ slunce nad Masai Marou. Řidič Joseph zastavil.", raw);
+        Assert.Contains("ImageDescription: Západ slunce nad Masai Marou. Řidič Joseph zastavil.", raw);
+        // popisek se čte z plného popisu, ne z nadpisu
+        Assert.Equal("Západ slunce nad Masai Marou. Řidič Joseph zastavil.", Exif.Tool.Read([file]).Single().Caption);
+    }
+
+    [Fact]
+    public void Stara_servisni_slozka_se_prejmenuje_jen_kdyz_je_nase()
+    {
+        using var t = new TempDir();
+        var ours = t.Sub("A", "_fotoalbum", "zaloha");
+        File.WriteAllText(System.IO.Path.Combine(ours, "katalog-2026-11-11_120000.db"), "x");
+        t.Sub("B", "_fotoalbum", "neco-ciziho");
+
+        new PhotoLibrary(System.IO.Path.Combine(t.Path, "A")).MigrateServiceFolders();
+        new PhotoLibrary(System.IO.Path.Combine(t.Path, "B")).MigrateServiceFolders();
+
+        Assert.True(Directory.Exists(System.IO.Path.Combine(t.Path, "A", PhotoLibrary.DatabaseFolder, "zaloha")));
+        Assert.False(Directory.Exists(System.IO.Path.Combine(t.Path, "A", "_fotoalbum")));
+        Assert.True(Directory.Exists(System.IO.Path.Combine(t.Path, "B", "_fotoalbum")));
+    }
+
+    [Theory]
+    [InlineData("Afrika 1998/Keňa", "Afrika 1998 · Keňa")]
+    [InlineData("2026 léto", "2026 léto")]
+    [InlineData("", "Všechny fotky")]
+    public void Nazev_alba(string folder, string expected) => Assert.Equal(expected, FotoalbumService.AlbumName(folder));
+
+    [Fact]
+    public void Starsi_hodnota_cestovni_znamena_dovolenou()
+    {
+        Assert.Equal(FolderKind.Vacation, FolderKind.Normalize("cestovni"));
+        Assert.Null(FolderKind.Normalize("nesmysl"));
     }
 }

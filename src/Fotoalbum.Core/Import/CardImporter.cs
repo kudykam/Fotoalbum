@@ -201,8 +201,10 @@ public sealed class CardImporter
             foreach (var d in dirs)
             {
                 var name = Path.GetFileName(d);
-                // _originaly obsahuje zálohy fotek z knihovny – i ty se počítají jako „už v počítači“
-                if (name.Equals("_originaly", StringComparison.OrdinalIgnoreCase) || !PhotoLibrary.IsIgnoredDir(name)) stack.Push(d);
+                // originály (před odstraněním vepsaného textu) se počítají jako „už v počítači“
+                var originals = name.Equals(PhotoLibrary.OriginalsFolder, StringComparison.OrdinalIgnoreCase)
+                    || name.Equals(PhotoLibrary.LegacyOriginalsFolder, StringComparison.OrdinalIgnoreCase);
+                if (originals || !PhotoLibrary.IsIgnoredDir(name)) stack.Push(d);
             }
         }
     }

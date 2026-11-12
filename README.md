@@ -20,7 +20,9 @@ Hotovo:
 - stavy fotky: popsáno, bez popisku (klávesa **B**), označeno ke smazání,
 - mazání jen do koše Windows a až po potvrzení při zavření programu,
 - pokračování tam, kde se minule skončilo,
-- záloha databáze do `_fotoalbum\zaloha` ve složce s fotkami (zálohuje ji Synology Drive).
+- záloha databáze do složky `Fotoalbum – databáze (nemazat)\zaloha` ve složce s fotkami (zálohuje ji Synology Drive),
+- úpravy po prvním testu (specifikace 2.7): štítek „Dovolená“, popisek se ukládá až při další akci, Zpět/Znovu po celých akcích,
+  tlačítko „Bez popisku – další fotka“, nadpis fotky (Windows „Název“), vlastní ikona.
 
 **Kopírování z karty** (součást aplikace): Fotoalbum běží na pozadí jako ikona u hodin a spouští se s Windows.
 Po zasunutí karty z fotoaparátu do čtečky (DCIM/100_PANA…) samo zkopíruje nové fotky a videa do složek „rok období“
@@ -33,7 +35,8 @@ Další etapy (diktování, AI, knihovna alb, čtení, tablet, televize) – viz
 | Akce | Ovládání |
 |---|---|
 | Předchozí / další fotka | šipky na fotce, tlačítka, klávesy ← → (mimo psaní), PageUp / PageDown (i při psaní) |
-| Bez popisku | Více → Bez popisku, klávesa **B** |
+| Bez popisku (a hned další fotka) | tlačítko „Bez popisku – další fotka“, klávesa **B** |
+| Zpět / Znovu (celé akce) | tlačítka, Ctrl+Z / Ctrl+Y (mimo psaní) |
 | Nastavení (složka s fotkami) | **Ctrl+Alt+S** – pro správce |
 
 ## Struktura

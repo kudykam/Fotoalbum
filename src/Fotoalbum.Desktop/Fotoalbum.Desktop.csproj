@@ -10,6 +10,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>Fotoalbum</AssemblyName>
+    <ApplicationIcon>fotoalbum.ico</ApplicationIcon>
     <RootNamespace>Fotoalbum.Desktop</RootNamespace>
     <Product>Fotoalbum</Product>
     <Version>0.1.0</Version>
@@ -27,6 +28,10 @@
   </ItemGroup>
 
   <!-- ExifTool pro Windows se přibalí, pokud leží v src/Fotoalbum.Desktop/exiftool (není v repozitáři). -->
+  <ItemGroup>
+    <None Include="fotoalbum.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="exiftool\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

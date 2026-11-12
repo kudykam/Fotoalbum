@@ -1,19 +1,23 @@
 "use strict";
-/* Fotoalbum – Pracovna (etapa 1): složky, miniatury, velká fotka, ruční popisek, automatické ukládání. */
+/* Fotoalbum – Pracovna (etapa 1 + úpravy po prvním testu, specifikace 2.7).
+   Popisek se ukládá až při další akci (Další, Předchozí, Bez popisku…), Zpět/Znovu vrací celé akce. */
 
 const $ = id => document.getElementById(id);
 const S = {
   state: null, host: "web", canPick: false,
   tree: null, open: {}, folder: null, photos: [], cur: null,
-  fUndone: false, fEvery: false, side: true, menu: false,
-  saveTimer: null, saving: false, dirty: false, lastSaved: null,
-  undo: new Map(), // path -> {stack:[], i}
+  fUndone: false, onlyVacation: false, side: true, menu: false,
+  keep: new Set(),        // fotky vyřízené během zapnutého filtru – zůstanou vidět do přepnutí filtru
+  saved: "",              // uložený popisek aktuální fotky
+  busy: false, closed: false,
+  hist: [], hi: 0,        // historie akcí pro Zpět/Znovu (jen v aktuální složce, do zavření okna)
 };
+const DRAFT_KEY = "fotoalbum-rozepsano";
 
 /* ---------- API ---------- */
-async function api(method, url, body) {
+async function api(method, url, body, keepalive) {
   const res = await fetch(url, {
-    method, credentials: "same-origin",
+    method, credentials: "same-origin", keepalive: !!keepalive,
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -52,6 +56,11 @@ function modal(html, onAction) {
   };
 }
 function fail(e) { toast(e.message || String(e), null, 8000); }
+function draftSave(path, text) { try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ path, text })); } catch { } }
+function draftClear() { try { localStorage.removeItem(DRAFT_KEY); } catch { } }
+function draftGet() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; } }
+const isDirty = () => !!S.cur && $("ta").value !== S.saved;
+const handled = p => p.status === "done" || p.status === "skip";
 
 /* ---------- start a nastavení ---------- */
 async function boot() {
@@ -84,8 +93,8 @@ function showSetup(first) {
     <div class="note ${st.exifToolOk ? "ok" : "bad"}">${st.exifToolOk
       ? `Zápis popisků do fotek je připravený (ExifTool ${esc(st.exifToolVersion || "")}).`
       : "Chybí program ExifTool, bez něj se popisky nezapíší do fotek (ukládají se jen v aplikaci). Umístěte <b>exiftool.exe</b> do složky <b>exiftool</b> vedle aplikace."}</div>
-    <label class="toggle" style="font-weight:400"><input type="checkbox" id="autoImp" ${st.autoImport ? "checked" : ""}> Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky (do složek „rok + roční období“, např. „2026 léto“)</label>
-    ${first ? "" : `<p style="font-size:15px">Data aplikace (databáze, náhledy) jsou v profilu uživatele. Záloha databáze se ukládá do složky <b>_fotoalbum\\zaloha</b> ve složce s fotkami.</p>`}
+    <label class="toggle" style="font-weight:400"><input type="checkbox" id="autoImp" ${st.autoImport ? "checked" : ""}> Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky a videa (do složek „rok + roční období“, např. „2026 léto“)</label>
+    ${first ? "" : `<p style="font-size:15px">Data aplikace (databáze, náhledy) jsou v profilu uživatele. Záloha databáze se ukládá do složky <b>Fotoalbum – databáze (nemazat)</b> ve složce s fotkami.</p>`}
   </div>`;
   if (S.canPick) $("pick").onclick = async () => {
     try { const r = await api("POST", "/api/pick-folder"); if (r.folder) $("rootIn").value = r.folder; } catch (e) { fail(e); }
@@ -115,80 +124,174 @@ function firstFolderWithPhotos(n) {
   return n.total > 0 ? n.path : null;
 }
 function findNode(n, path) { if (!n) return null; if (n.path === path) return n; for (const c of n.children) { const f = findNode(c, path); if (f) return f; } return null; }
+function ownCount(f) { return f.total - f.children.reduce((a, c) => a + c.total, 0); }
+function hasVacation(f) { return f.kind === "dovolena" || f.children.some(hasVacation); }
+function expandTo(path) { const parts = path.split("/"); for (let i = 1; i < parts.length; i++) S.open[parts.slice(0, i).join("/")] = true; }
 function renderTree() {
   const el = $("tree"); el.innerHTML = "";
-  const nodes = ownCount(S.tree) > 0 || !S.tree.children.length ? [S.tree] : S.tree.children;
   if (S.open[""] === undefined) S.open[""] = true;
+  const nodes = ownCount(S.tree) > 0 || !S.tree.children.length ? [S.tree] : S.tree.children;
+  const shown = f => !S.onlyVacation || hasVacation(f);
   const mk = (f, host) => {
+    if (!shown(f)) return;
     const li = document.createElement("li");
-    const has = f.children.length > 0;
+    const kids = f.children.filter(shown);
+    const has = kids.length > 0;
     const b = document.createElement("button");
     b.className = "node"; b.setAttribute("aria-current", S.folder === f.path);
     b.innerHTML = (has ? (S.open[f.path] ? ico.open : ico.shut) : ico.none) + ico.folder +
-      `<span class="nm">${esc(f.name || "Všechny fotky")}</span>${f.kind === "bezne" ? '<span class="kind">běžné</span>' : ""}<span class="cnt">${f.handled}/${f.total}</span>`;
+      `<span class="nm">${esc(f.name || "Všechny fotky")}</span>${f.kind === "dovolena" && !f.kindInherited ? '<span class="tag">Dovolená</span>' : ""}<span class="cnt">${f.handled}/${f.total}</span>`;
     b.onclick = () => {
       if (has) S.open[f.path] = !S.open[f.path];
       if (ownCount(f) > 0 || !has) openFolder(f.path); else renderTree();
     };
     li.append(b);
-    if (has && S.open[f.path]) { const ul = document.createElement("ul"); f.children.forEach(c => mk(c, ul)); li.append(ul); }
+    if (has && S.open[f.path]) { const ul = document.createElement("ul"); kids.forEach(c => mk(c, ul)); li.append(ul); }
     host.append(li);
   };
   nodes.forEach(n => mk(n, el));
+  if (!el.children.length) el.innerHTML = '<li class="treeempty">Žádná složka zatím není označená jako dovolená.</li>';
   renderKindRow();
 }
-function ownCount(f) { return f.total - f.children.reduce((a, c) => a + c.total, 0); }
-function expandTo(path) { const parts = path.split("/"); for (let i = 1; i < parts.length; i++) S.open[parts.slice(0, i).join("/")] = true; }
 function renderKindRow() {
   const n = S.folder != null ? findNode(S.tree, S.folder) : null; const el = $("kindRow");
   if (!n) { el.innerHTML = ""; return; }
-  el.innerHTML = `<span>Druh této složky:</span><button data-k="cestovni" aria-pressed="${n.kind === "cestovni"}">cestovní</button><button data-k="bezne" aria-pressed="${n.kind === "bezne"}">běžné fotky</button>`;
-  el.querySelectorAll("button").forEach(b => b.onclick = async () => {
-    try { await api("POST", "/api/folder/kind", { path: S.folder, kind: b.dataset.k }); await refreshFolderMeta(); } catch (e) { fail(e); }
-  });
+  el.innerHTML = `<label class="toggle"><input type="checkbox" id="kindVac" ${n.kind === "dovolena" ? "checked" : ""}> Tato složka je z dovolené</label>`;
+  $("kindVac").onchange = async e => {
+    try { await api("POST", "/api/folder/kind", { path: S.folder, kind: e.target.checked ? "dovolena" : "bezne" }); await refreshFolderMeta(); }
+    catch (err) { fail(err); }
+  };
 }
 async function refreshFolderMeta() {
   await loadTree();
   const r = await api("GET", "/api/folder?path=" + q(S.folder));
   const byPath = new Map(r.photos.map(p => [p.path, p]));
-  S.photos = S.photos.map(p => byPath.get(p.path) || p);
-  S.cur = S.cur && byPath.get(S.cur.path) || S.cur;
-  stripKey = ""; renderAll(false);
+  S.photos = S.photos.map(p => Object.assign(p, byPath.get(p.path) || {}));
+  renderAll(false);
 }
 
 /* ---------- složka a fotky ---------- */
 async function openFolder(path, initial) {
-  await flushSave(); closeMenu();
+  if (!initial) { await commit(); closeMenu(); }
   if (S.cur) api("POST", "/api/photo/leave", { folder: S.folder, path: S.cur.path }).catch(() => {});
   S.folder = path; expandTo(path); renderTree();
+  S.hist = []; S.hi = 0; S.keep.clear();
   $("loading").hidden = false;
   try {
     const r = await api("GET", "/api/folder?path=" + q(path));
     S.photos = r.photos; stripKey = "";
-    const last = r.lastPhoto && S.photos.find(p => p.path === r.lastPhoto);
-    S.cur = last || null;
+    S.cur = (r.lastPhoto && S.photos.find(p => p.path === r.lastPhoto)) || null;
+    S.saved = cur() ? S.cur.caption : "";
     renderAll(true);
-    if (initial && last) toast("Pokračujete tam, kde jste minule skončili.", null, 3000);
+    // obnova textu rozepsaného před nečekaným zavřením
+    const d = draftGet();
+    if (initial && d && S.cur && d.path === S.cur.path && d.text !== S.saved) {
+      $("ta").value = d.text; renderCaption(false); renderButtons();
+      toast("Obnoven rozepsaný text, který se minule nestihl uložit.", null, 5000);
+    } else if (initial && S.cur) toast("Pokračujete tam, kde jste minule skončili.", null, 3000);
     loadTree().catch(() => {});
   } catch (e) { fail(e); } finally { $("loading").hidden = true; }
 }
 function visible() {
-  return S.photos.filter(p =>
-    !(S.fUndone && (p.status === "done" || p.status === "skip") && p !== S.cur) &&
-    !(S.fEvery && p.everyday && p !== S.cur));
+  return S.photos.filter(p => !(S.fUndone && handled(p) && !S.keep.has(p.path)));
 }
-function cur() { const v = visible(); if (!S.cur || !v.includes(S.cur)) S.cur = v[0] || null; return S.cur; }
+function cur() { const v = visible(); if (!S.cur || !v.includes(S.cur)) { S.cur = v[0] || null; S.saved = S.cur ? S.cur.caption : ""; } return S.cur; }
+const byPath = path => S.photos.find(p => p.path === path);
 
-async function go(p) {
-  if (!p || p === S.cur) return;
-  await flushSave(); closeMenu();
+/* ---------- historie akcí (Zpět / Znovu) ---------- */
+function record(a) { S.hist = S.hist.slice(0, S.hi); S.hist.push(a); S.hi = S.hist.length; }
+
+/** Provede akci (dopředu, nebo pozpátku) bez zápisu do historie. */
+async function applyAction(a, backwards) {
+  switch (a.t) {
+    case "nav": await showPhoto(byPath(backwards ? a.from : a.to)); break;
+    case "caption": {
+      const p = byPath(a.path); if (!p) break;
+      if (S.cur !== p) await showPhoto(p);
+      await saveCaption(p, backwards ? a.before : a.after);
+      $("ta").value = S.saved; break;
+    }
+    case "flags": {
+      const p = byPath(a.path); if (!p) break;
+      if (S.cur !== p) await showPhoto(p);
+      Object.assign(p, await api("POST", "/api/photo/flags", { path: p.path, ...(backwards ? a.before : a.after) }));
+      break;
+    }
+    case "multi": for (const x of (backwards ? [...a.list].reverse() : a.list)) await applyAction(x, backwards); break;
+  }
+}
+async function undo() {
+  if (S.busy || !S.cur) return;
+  if (isDirty()) { // neuložené psaní se vrátí celé najednou
+    $("ta").value = S.saved; draftClear(); renderCaption(false); renderButtons(); return;
+  }
+  if (S.hi === 0) return;
+  await run(async () => { S.hi--; await applyAction(S.hist[S.hi], true); });
+}
+async function redo() {
+  if (S.busy || isDirty() || S.hi >= S.hist.length) return;
+  await run(async () => { await applyAction(S.hist[S.hi], false); S.hi++; });
+}
+/** Spustí akci, zamkne tlačítka a překreslí vše. */
+async function run(fn) {
+  S.busy = true; renderButtons();
+  try { await fn(); } catch (e) { fail(e); }
+  finally { S.busy = false; renderAll(false); loadTree().catch(() => {}); }
+}
+
+/* ---------- ukládání popisku ---------- */
+async function saveCaption(p, text) {
+  const d = await api("PUT", "/api/photo/caption", { path: p.path, caption: text, isDraft: false });
+  Object.assign(p, d);
+  if (S.cur === p) S.saved = d.caption;
+  if (S.fUndone && handled(p)) S.keep.add(p.path);
+  pollWrite(p);
+  return d;
+}
+/** Uloží rozepsaný text aktuální fotky (volá se před každou akcí) a zapíše to do historie jako jeden krok. */
+async function commit() {
+  const p = S.cur; if (!p || !isDirty()) return;
+  const before = S.saved, text = $("ta").value;
+  await saveCaption(p, text);
+  draftClear();
+  record({ t: "caption", path: p.path, before, after: S.saved });
+}
+let pollT;
+function pollWrite(p) {
+  clearTimeout(pollT);
+  if (!p.writePending) return;
+  pollT = setTimeout(async () => {
+    try { const d = await api("GET", "/api/photo?path=" + q(p.path)); Object.assign(p, d); if (S.cur === p) renderCaption(false); updatePending(); pollWrite(p); } catch { }
+  }, 2500);
+}
+async function updatePending() {
+  if (S.closed) return;
+  try { const r = await api("GET", "/api/state"); S.state = r.state; const n = r.state.pendingWrites; const el = $("pending"); el.hidden = !n; el.textContent = n ? `Zapisuji popisky do fotek (${n})…` : ""; } catch { }
+}
+
+/* ---------- navigace ---------- */
+/** Zobrazí fotku (bez ukládání a historie). */
+async function showPhoto(p) {
+  if (!p || p === S.cur) { renderAll(false); return; }
   const prev = S.cur;
-  S.cur = p;
+  S.cur = p; S.saved = p.caption;
   if (prev) api("POST", "/api/photo/leave", { folder: S.folder, path: prev.path }).catch(() => {});
   api("POST", "/api/photo/position", { folder: S.folder, path: p.path }).catch(() => {});
   renderAll(true);
 }
-function step(d) { const v = visible(), i = v.indexOf(S.cur); if (v[i + d]) go(v[i + d]); }
+/** Uživatel přešel na jinou fotku: nejdřív uložit, pak zapsat přechod do historie. */
+async function go(p) {
+  if (!p || p === S.cur || S.busy) return;
+  closeMenu();
+  await run(async () => {
+    await commit();
+    const from = S.cur;
+    await showPhoto(p);
+    if (from) record({ t: "nav", from: from.path, to: p.path });
+  });
+}
+function neighbour(d) { const v = visible(), i = v.indexOf(S.cur); return v[i + d] || null; }
+function step(d) { const n = neighbour(d); if (n) go(n); }
 function nextUndone() {
   const v = visible(), i = v.indexOf(S.cur);
   const n = v.slice(i + 1).find(p => p.status === "none") || v.find(p => p.status === "none");
@@ -202,17 +305,17 @@ let stripKey = "", stripMap = new Map(), io = null;
 function badgeFor(st) { return { done: ["done", "✓"], draft: ["draft", "✎"], skip: ["skip", "–"], del: ["del", "✕"] }[st] || ["", ""]; }
 function renderStrip() {
   const el = $("strip"), v = visible(), p = cur();
-  const key = S.folder + "|" + S.fUndone + "|" + S.fEvery + "|" + v.length;
+  const key = S.folder + "|" + S.fUndone + "|" + v.map(x => x.path).join("|").length + "|" + v.length;
   if (key !== stripKey) {
     stripKey = key; el.innerHTML = ""; stripMap.clear(); if (io) io.disconnect();
     io = new IntersectionObserver(es => es.forEach(e => {
       if (!e.isIntersecting) return;
-      const img = e.target.querySelector("img"); const ph = stripMap.get(e.target);
+      const img = e.target.querySelector("img");
       if (img.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
-      io.unobserve(e.target); void ph;
+      io.unobserve(e.target);
     }), { root: el, rootMargin: "0px 800px" });
     v.forEach(ph => {
-      const b = document.createElement("button"); b.className = "thumb"; b.setAttribute("role", "listitem"); b.title = ph.name;
+      const b = document.createElement("button"); b.className = "thumb"; b.setAttribute("role", "listitem"); b.title = ph.title || ph.name;
       b.innerHTML = `<img alt="${esc(ph.name)}" data-src="/api/thumb?size=240&path=${q(ph.path)}"><span class="badge"></span>`;
       b.onclick = () => go(ph); stripMap.set(b, ph); el.append(b); io.observe(b);
     });
@@ -225,8 +328,7 @@ function renderStrip() {
     b.firstChild.style.transform = ph.rotation ? `rotate(${ph.rotation}deg)` : "";
   }
   const all = S.photos.filter(x => x.status !== "del");
-  const handled = all.filter(x => x.status === "done" || x.status === "skip").length;
-  $("progress").innerHTML = p ? `<b>Fotka ${v.indexOf(p) + 1} z ${v.length}</b> · vyřízeno ${handled} z ${all.length}` : "";
+  $("progress").innerHTML = p ? `<b>Fotka ${v.indexOf(p) + 1} z ${v.length}</b> · vyřízeno ${all.filter(handled).length} z ${all.length}` : "";
   drawTrack();
   const a = [...stripMap.keys()].find(b => stripMap.get(b) === p); if (a) a.scrollIntoView({ block: "nearest", inline: "center" });
 }
@@ -247,26 +349,30 @@ $("track").onclick = e => {
 
 function renderStage(newPhoto) {
   const p = cur(), st = $("stage"), img = $("photo");
-  st.querySelectorAll(".mask,.empty").forEach(n => n.remove());
+  st.querySelectorAll(".delband,.empty").forEach(n => n.remove());
   if (!p) {
     img.hidden = true; $("meta").innerHTML = "";
     const e = document.createElement("div"); e.className = "empty";
-    e.innerHTML = S.photos.length ? 'Filtr skryl všechny fotky v této složce.<button class="b small solid" id="showAll">Ukázat všechny fotky</button>'
+    e.innerHTML = S.photos.length ? 'V této složce je všechno vyřízené.<button class="b small solid" id="showAll">Ukázat všechny fotky</button>'
       : "V této složce nejsou žádné fotky. Vyberte jinou složku vlevo.";
     st.append(e);
-    const b = $("showAll"); if (b) b.onclick = () => { S.fUndone = S.fEvery = false; $("fUndone").checked = $("fEvery").checked = false; stripKey = ""; renderAll(true); };
+    const b = $("showAll"); if (b) b.onclick = () => { S.fUndone = false; $("fUndone").checked = false; S.keep.clear(); stripKey = ""; renderAll(true); };
     return;
   }
   img.hidden = false;
   if (newPhoto) { img.style.visibility = "hidden"; img.onload = () => { fitImage(); img.style.visibility = ""; }; img.src = "/api/image?path=" + q(p.path); }
   else fitImage();
   const n = findNode(S.tree, S.folder);
-  $("meta").innerHTML = `<span class="chip">${esc(p.name)}</span>${p.date ? `<span class="chip">${fmtDate(p.date)}</span>` : ""}<span class="chip">${esc(n ? (n.name || "Všechny fotky") : "")}</span>`
-    + (p.everyday ? '<span class="chip every">běžná fotka</span>' : "") + (p.status === "skip" ? '<span class="chip skipc">bez popisku</span>' : "");
+  // záhlaví: nadpis z popisku (jakmile existuje), jinak název souboru
+  $("meta").innerHTML = (p.title ? `<span class="chip title" title="${esc(p.name)}">${esc(p.title)}</span>` : `<span class="chip">${esc(p.name)}</span>`)
+    + (p.date ? `<span class="chip">${fmtDate(p.date)}</span>` : "")
+    + `<span class="chip">${esc(n ? (n.name || "Všechny fotky") : "")}</span>`
+    + (p.status === "skip" ? '<span class="chip skipc">bez popisku</span>' : "");
   if (p.status === "del") {
-    const m = document.createElement("div"); m.className = "mask";
-    m.innerHTML = '<div class="box"><strong>Bude smazána</strong><span>Fotka se přesune do koše až při zavření programu.</span><button class="b small solid" id="undel">Vrátit, nemazat</button></div>';
-    st.append(m); $("undel").onclick = () => setFlags({ markedDelete: false });
+    // jen nápis přes fotku – nečeká na žádné kliknutí
+    const m = document.createElement("div"); m.className = "delband";
+    m.innerHTML = 'Bude smazána při zavření programu <button class="linkbtn light" id="undel">vrátit</button>';
+    st.append(m); $("undel").onclick = () => setFlags({ markedDelete: false }, { markedDelete: true });
   }
 }
 function fitImage() {
@@ -278,134 +384,120 @@ function fitImage() {
   img.style.transform = p.rotation ? `rotate(${p.rotation}deg)` : "";
 }
 
-function undoState(p) { if (!S.undo.has(p.path)) S.undo.set(p.path, { stack: [p.caption], i: 0 }); return S.undo.get(p.path); }
 function renderCaption(newPhoto) {
   const p = S.cur, ta = $("ta");
   ta.disabled = !p || p.status === "del";
-  if (newPhoto || document.activeElement !== ta) ta.value = p ? p.caption : "";
-  if (p) undoState(p);
+  if (newPhoto) ta.value = p ? p.caption : "";
+  const dirty = isDirty();
+  const st = !p ? "none" : dirty ? (ta.value.trim() ? "edit" : "none") : p.status;
   const m = $("mode");
-  const st = p ? (S.dirty ? (ta.value.trim() ? "done" : "none") : p.status) : "none";
-  m.className = "mode " + (st === "done" ? "done" : st === "draft" ? "draft" : "");
-  m.textContent = { done: "Popisek", draft: "Rozepsáno", skip: "Bez popisku", del: "Ke smazání" }[st] || "Prázdný popisek";
-  ta.placeholder = p && p.status === "skip" ? "Fotka je označená „bez popisku“. Když začnete psát, značka zmizí." : "Napište, co je na fotce. Ukládá se samo.";
-  renderSave();
+  m.className = "mode " + ({ done: "done", edit: "draft", draft: "draft" }[st] || "");
+  m.textContent = { done: "Popisek", edit: "Píšete", draft: "Rozepsáno", skip: "Bez popisku", del: "Ke smazání" }[st] || "Prázdný popisek";
+  ta.placeholder = p && p.status === "skip" ? "Fotka je označená „bez popisku“. Když začnete psát, značka zmizí." : "Napište, co je na fotce.";
+  const s = $("save");
+  const ok = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg>';
+  if (!p) s.textContent = "";
+  else if (dirty) { s.className = "save"; s.textContent = "Uloží se při přechodu dál"; }
+  else if (!p.caption) { s.className = "save"; s.textContent = ""; }
+  else if (p.writePending) { s.className = "save ok"; s.innerHTML = ok + "Uloženo"; }
+  else { s.className = "save ok"; s.innerHTML = ok + "Uloženo do fotky"; }
+  $("clear").disabled = !p || p.status === "del" || !ta.value;
   const err = $("writeErr");
   err.hidden = !(p && p.writeError);
   if (p && p.writeError) err.textContent = "Do fotky se nepodařilo zapsat: " + p.writeError + " Popisek je uložený v aplikaci a zápis se zkusí znovu.";
 }
-function renderSave() {
-  const s = $("save"), p = S.cur;
-  if (!p) { s.textContent = ""; return; }
-  const ok = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg>';
-  if (S.dirty || S.saving) { s.className = "save"; s.textContent = "Ukládám…"; }
-  else if (!p.caption && !p.writePending && p.status !== "done") { s.className = "save"; s.textContent = ""; }
-  else if (p.writePending) { s.className = "save ok"; s.innerHTML = ok + "Uloženo"; }
-  else { s.className = "save ok"; s.innerHTML = ok + "Uloženo do fotky"; }
-}
 function renderButtons() {
-  const p = S.cur, v = visible(), i = v.indexOf(p);
-  $("prev").disabled = $("pL").disabled = !p || i <= 0;
-  $("next").disabled = $("pR").disabled = !p || i >= v.length - 1;
-  const u = p ? undoState(p) : null, lock = !p || p.status === "del";
-  $("undo").disabled = lock || !(u && u.i > 0);
-  $("redo").disabled = lock || !(u && u.i < u.stack.length - 1);
-  $("clear").disabled = lock || !$("ta").value;
-  $("more").disabled = !p;
+  const p = S.cur, lock = !p || S.busy;
+  $("prev").disabled = $("pL").disabled = lock || !neighbour(-1);
+  $("next").disabled = $("pR").disabled = lock || !neighbour(1);
+  $("skip").disabled = lock || p.status === "del";
+  $("undo").disabled = lock || !(isDirty() || S.hi > 0);
+  $("redo").disabled = lock || isDirty() || S.hi >= S.hist.length;
+  $("more").disabled = lock;
+  $("clear").disabled = lock || p.status === "del" || !$("ta").value;
 }
 
-/* ---------- ukládání popisku ---------- */
-$("ta").addEventListener("input", () => {
-  if (!S.cur) return;
-  S.dirty = true; renderCaption(false); renderButtons();
-  clearTimeout(S.saveTimer); S.saveTimer = setTimeout(() => flushSave(), 700);
-});
-async function flushSave() {
-  clearTimeout(S.saveTimer);
-  const p = S.cur; if (!p || !S.dirty) return;
-  const text = $("ta").value;
-  S.dirty = false; S.saving = true; renderSave();
-  try {
-    const d = await api("PUT", "/api/photo/caption", { path: p.path, caption: text, isDraft: false });
-    Object.assign(p, d);
-    const u = undoState(p);
-    if (u.stack[u.i] !== d.caption) { u.stack = u.stack.slice(0, u.i + 1); u.stack.push(d.caption); u.i = u.stack.length - 1; }
-    pollWrite(p);
-  } catch (e) { S.dirty = true; fail(e); }
-  finally { S.saving = false; if (S.cur === p) { renderCaption(false); renderButtons(); } renderStrip(); }
+/* ---------- akce na fotce ---------- */
+/** Změní příznaky aktuální fotky a zapíše to do historie (before = jak to bylo). */
+async function setFlags(after, before, then) {
+  const p = S.cur; if (!p || S.busy) return;
+  closeMenu();
+  await run(async () => {
+    await commit();
+    Object.assign(p, await api("POST", "/api/photo/flags", { path: p.path, ...after }));
+    if (S.fUndone && handled(p)) S.keep.add(p.path);
+    record({ t: "flags", path: p.path, before, after });
+    if (then) await then();
+  });
 }
-let pollT;
-function pollWrite(p) {
-  clearTimeout(pollT);
-  if (!p.writePending) return;
-  pollT = setTimeout(async () => {
-    try { const d = await api("GET", "/api/photo?path=" + q(p.path)); if (!S.dirty) Object.assign(p, d); if (S.cur === p) renderCaption(false); updatePending(); pollWrite(p); } catch { /* další pokus později */ }
-  }, 2500);
+/** Přechod na další fotku jako samostatný krok historie (Zpět nejdřív vrátí na tuto fotku). */
+async function advance() {
+  const n = neighbour(1); if (!n) return;
+  const from = S.cur; await showPhoto(n); record({ t: "nav", from: from.path, to: n.path });
 }
-async function setCaption(text, msg) {
-  $("ta").value = text; S.dirty = true; await flushSave(); if (msg) toast(msg.text, msg.act);
+function skipPhoto() {
+  const p = S.cur; if (!p || S.busy) return;
+  if (p.status === "skip") { step(1); return; }
+  const text = $("ta").value.trim();
+  if (!text) { setFlags({ skip: true }, { skip: false }, advance); return; }
+  // ochrana před omylem: fotka už má popisek
+  modal(`<h3>Fotka má popisek</h3><p>Opravdu ho smazat a označit fotku jako „bez popisku“?</p>
+    <div class="quote">${esc(text)}</div>
+    <div class="col"><button class="b" data-a="no">Ne, popisek ponechat</button><button class="b danger" data-a="yes">Smazat popisek a pokračovat</button></div>`,
+    async a => {
+      if (a !== "yes") return;
+      await run(async () => {
+        const before = S.saved;
+        await saveCaption(p, "");
+        $("ta").value = ""; draftClear();
+        Object.assign(p, await api("POST", "/api/photo/flags", { path: p.path, skip: true }));
+        record({ t: "multi", list: [{ t: "caption", path: p.path, before, after: "" }, { t: "flags", path: p.path, before: { skip: false }, after: { skip: true } }] });
+        await advance();
+      });
+    });
 }
-async function undoRedo(d) {
-  const p = S.cur; if (!p) return; const u = undoState(p);
-  const ni = u.i + d; if (ni < 0 || ni >= u.stack.length) return;
-  u.i = ni; $("ta").value = u.stack[ni]; S.dirty = true;
-  clearTimeout(S.saveTimer); S.saving = true; S.dirty = false; renderSave();
-  try { Object.assign(p, await api("PUT", "/api/photo/caption", { path: p.path, caption: u.stack[ni], isDraft: false })); pollWrite(p); }
-  catch (e) { fail(e); } finally { S.saving = false; renderCaption(false); renderButtons(); renderStrip(); }
-}
-async function updatePending() {
-  try { const r = await api("GET", "/api/state"); S.state = r.state; const n = r.state.pendingWrites; const el = $("pending"); el.hidden = !n; el.textContent = n ? `Zapisuji popisky do fotek (${n})…` : ""; } catch { }
-}
-
-/* ---------- příznaky a menu ---------- */
-async function setFlags(f, msg) {
+function markDelete() {
   const p = S.cur; if (!p) return;
-  await flushSave(); closeMenu();
-  try {
-    Object.assign(p, await api("POST", "/api/photo/flags", { path: p.path, ...f }));
-    renderAll(false); loadTree().catch(() => {});
-    if (msg) toast(msg.text, msg.act, msg.ms);
-  } catch (e) { fail(e); }
+  if (p.status === "del") { setFlags({ markedDelete: false }, { markedDelete: true }); return; }
+  setFlags({ markedDelete: true }, { markedDelete: false }, async () => {
+    await advance();
+    toast("Fotka je označená ke smazání. Smaže se až při zavření programu.", null, 4000);
+  });
 }
-function toggleSkip() {
-  const p = S.cur; if (!p) return;
-  if (p.status !== "skip" && $("ta").value.trim()) { toast("Fotka už má popisek. Pro označení „bez popisku“ ho nejdřív smažte."); return; }
-  const on = p.status !== "skip";
-  setFlags({ skip: on }, on ? { text: "Fotka nepotřebuje popisek a počítá se jako vyřízená.", act: { label: "Vrátit", fn: () => setFlags({ skip: false }) }, ms: 3500 } : null);
-}
-function toggleDel() {
-  const p = S.cur; if (!p) return;
-  const on = p.status !== "del";
-  setFlags({ markedDelete: on }, on ? { text: "Fotka je označená ke smazání. Do zavření programu jde vrátit.", act: { label: "Vrátit", fn: () => setFlags({ markedDelete: false }) } } : null);
-}
-function rotate() { const p = S.cur; if (p) setFlags({ rotation: (p.rotation + 90) % 360 }); }
-function toggleEvery() {
-  const p = S.cur; if (!p) return;
-  const n = findNode(S.tree, S.folder); const folderEveryday = n && n.kind === "bezne";
-  const want = !p.everyday;
-  setFlags(want === folderEveryday ? { clearEveryday: true } : { everyday: want },
-    { text: want ? "Fotka je označená jako běžná." : "Fotka je označená jako cestovní." });
+function rotate() { const p = S.cur; if (p) setFlags({ rotation: (p.rotation + 90) % 360 }, { rotation: p.rotation }); }
+async function clearCaption() {
+  const p = S.cur; if (!p || !$("ta").value || S.busy) return;
+  await run(async () => {
+    const before = S.saved;
+    await saveCaption(p, "");
+    $("ta").value = ""; draftClear();
+    record({ t: "caption", path: p.path, before, after: "" });
+  });
+  toast("Popisek je smazaný. Vrátíte ho tlačítkem Zpět.", null, 3500);
 }
 function openMenu() {
   const p = S.cur, m = $("menu"); S.menu = true; $("more").setAttribute("aria-expanded", "true");
-  m.innerHTML = `<button data-a="skip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>${p.status === "skip" ? "Přece jen popsat" : "Bez popisku"}<small><kbd>B</kbd></small></button>
-  <button data-a="rot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 11-3-6.3"/><path d="M20 4v5h-5"/></svg>Otočit fotku</button>
-  <button data-a="ev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16M12 4v16"/></svg>${p.everyday ? "Označit jako cestovní" : "Označit jako běžnou fotku"}</button>
+  m.innerHTML = `<button data-a="rot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 11-3-6.3"/><path d="M20 4v5h-5"/></svg>Otočit fotku</button>
+  <button data-a="next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 5l7 7-7 7M13 5l7 7-7 7"/></svg>Přejít na další nepopsanou</button>
   <button data-a="del" class="danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>${p.status === "del" ? "Vrátit, nemazat fotku" : "Smazat fotku"}</button>`;
   m.hidden = false; m.querySelector("button").focus();
-  m.onclick = e => { const b = e.target.closest("button"); if (b) ({ skip: toggleSkip, rot: rotate, ev: toggleEvery, del: toggleDel })[b.dataset.a](); };
+  m.onclick = e => { const b = e.target.closest("button"); if (b) ({ rot: rotate, next: () => { closeMenu(); nextUndone(); }, del: markDelete })[b.dataset.a](); };
 }
 function closeMenu() { if (!S.menu) return; S.menu = false; $("menu").hidden = true; $("more").setAttribute("aria-expanded", "false"); }
 
 /* ---------- zavření programu ---------- */
 async function requestClose() {
   try {
-    await flushSave();
+    await commit();
     const marked = S.state && S.state.configured ? await api("GET", "/api/trash") : [];
     if (!marked.length) return quit(null);
     const n = marked.length, word = n === 1 ? "fotka" : n < 5 ? "fotky" : "fotek";
-    modal(`<h3>Označeno ${n} ${word} ke smazání</h3>
-      <div class="files">${marked.map(m => esc(m.path)).join("<br>")}</div>
+    const albums = new Map();
+    marked.forEach(m => { if (!albums.has(m.album)) albums.set(m.album, []); albums.get(m.album).push(m); });
+    const groups = [...albums].map(([album, items]) => `<div class="tgroup"><div class="talbum">${esc(album)}</div><div class="tthumbs">${
+      items.map(m => `<img alt="${esc(m.name)}" title="${esc(m.name)}" src="/api/thumb?size=200&path=${q(m.path)}">`).join("")}</div></div>`).join("");
+    modal(`<h3>${n === 1 ? "Označena" : "Označeno"} ${n} ${word} ke smazání</h3>
+      <div class="trash">${groups}</div>
       <p>Fotky se přesunou do koše Windows. Odtud je jde ještě obnovit.</p>
       <div class="col"><button class="b danger" data-a="bin">Přesunout do koše a zavřít</button>
       <button class="b" data-a="keep">Ponechat fotky a zavřít</button>
@@ -414,10 +506,10 @@ async function requestClose() {
   } catch (e) { fail(e); }
 }
 async function quit(moveToBin) {
-  modal(`<h3><span class="spin" style="border-top-color:var(--accent);border-color:var(--line)"></span>Ukládám a zavírám…</h3>`, () => {});
+  modal(`<h3><span class="spin dark"></span>Ukládám a zavírám…</h3>`, () => {});
   try {
     await api("POST", "/api/quit", { moveMarkedToBin: moveToBin });
-    S.closed = true; clearInterval(pendingTimer); clearTimeout(pollT);
+    S.closed = true; clearTimeout(pollT);
     if (S.host !== "pc") modal(`<h3>Fotoalbum je zavřené</h3><p>Vše je uložené. Okno prohlížeče můžete zavřít.</p>`, () => {});
   } catch (e) { $("modalHost").innerHTML = ""; fail(e); }
 }
@@ -430,21 +522,24 @@ window.fotoalbum = {
 /* ---------- události ---------- */
 $("prev").onclick = $("pL").onclick = () => step(-1);
 $("next").onclick = $("pR").onclick = () => step(1);
+$("skip").onclick = skipPhoto;
 $("nextUndone").onclick = nextUndone;
-$("undo").onclick = () => undoRedo(-1);
-$("redo").onclick = () => undoRedo(1);
-$("clear").onclick = () => {
-  const p = S.cur; if (!p || !$("ta").value) return;
-  setCaption("", { text: "Popisek je smazaný.", act: { label: "Vrátit", fn: () => undoRedo(-1) } });
-};
+$("undo").onclick = undo;
+$("redo").onclick = redo;
+$("clear").onclick = clearCaption;
 $("more").onclick = e => { e.stopPropagation(); S.menu ? closeMenu() : openMenu(); };
 document.addEventListener("click", e => { if (S.menu && !e.target.closest(".morewrap")) closeMenu(); });
 $("closeBtn").onclick = requestClose;
 $("sideBtn").onclick = () => { S.side = !S.side; $("work").classList.toggle("nosidebar", !S.side); requestAnimationFrame(() => { fitImage(); drawTrack(); }); };
-$("fUndone").onchange = e => { S.fUndone = e.target.checked; stripKey = ""; renderAll(true); };
-$("fEvery").onchange = e => { S.fEvery = e.target.checked; stripKey = ""; renderAll(true); };
+$("fUndone").onchange = e => { S.fUndone = e.target.checked; S.keep.clear(); stripKey = ""; renderAll(true); };
+$("fVac").onchange = e => { S.onlyVacation = e.target.checked; renderTree(); };
 $("stripL").onclick = () => $("strip").scrollBy({ left: -500 });
 $("stripR").onclick = () => $("strip").scrollBy({ left: 500 });
+$("ta").addEventListener("input", () => {
+  if (!S.cur) return;
+  draftSave(S.cur.path, $("ta").value); // jen pojistka pro nečekané zavření, neukládá se do fotky
+  renderCaption(false); renderButtons();
+});
 document.addEventListener("keydown", e => {
   if ($("modalHost").innerHTML) return;
   if (e.key === "Escape") { closeMenu(); return; }
@@ -455,9 +550,14 @@ document.addEventListener("keydown", e => {
   if (/TEXTAREA|INPUT|SELECT/.test(e.target.tagName)) return;
   if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
   else if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
-  else if (e.key === "b" || e.key === "B") toggleSkip();
+  else if (e.key === "b" || e.key === "B") skipPhoto();
+  else if (e.ctrlKey && (e.key === "z" || e.key === "Z")) { e.preventDefault(); undo(); }
+  else if (e.ctrlKey && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redo(); }
 });
-window.addEventListener("beforeunload", () => { if (S.dirty) flushSave(); });
+window.addEventListener("beforeunload", () => {
+  const p = S.cur;
+  if (p && isDirty()) api("PUT", "/api/photo/caption", { path: p.path, caption: $("ta").value, isDraft: false }, true).catch(() => {});
+});
 new ResizeObserver(() => { fitImage(); drawTrack(); }).observe($("stage"));
-const pendingTimer = setInterval(() => { if (!S.closed) updatePending(); }, 15000);
+setInterval(updatePending, 15000);
 boot();

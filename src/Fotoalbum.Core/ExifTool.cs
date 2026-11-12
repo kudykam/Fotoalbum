@@ -116,10 +116,15 @@ public sealed class ExifTool
         return result;
     }
 
-    /// <summary>Zapíše popisek do fotky (prázdný text popisky odstraní).</summary>
-    public void WriteCaption(string fullPath, string caption)
+    /// <summary>
+    /// Zapíše popisek do fotky (prázdný text popisky odstraní).
+    /// Celý popisek: XMP dc:description, IPTC Caption-Abstract, EXIF ImageDescription, Windows „Předmět“ a „Komentáře“.
+    /// Krátký nadpis: XMP dc:title, IPTC ObjectName a Windows „Název“ (XPTitle).
+    /// </summary>
+    public void WriteCaption(string fullPath, string caption, string? title = null)
     {
         var value = EscapeC(caption.Trim());
+        var t = EscapeC((title ?? CaptionTitle.From(caption) ?? "").Trim());
         var args = new List<string>
         {
             "-overwrite_original", "-m", "-ec",
@@ -128,6 +133,11 @@ public sealed class ExifTool
             "-XMP-dc:Description=" + value,
             "-IPTC:Caption-Abstract=" + value,
             "-IFD0:ImageDescription=" + value,
+            "-IFD0:XPSubject=" + value,
+            "-IFD0:XPComment=" + value,
+            "-XMP-dc:Title=" + t,
+            "-IPTC:ObjectName=" + t,
+            "-IFD0:XPTitle=" + t,
             fullPath,
         };
         var (code, output, error) = Run(args, Timeout);

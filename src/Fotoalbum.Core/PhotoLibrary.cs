@@ -21,6 +21,19 @@ public sealed class PhotoLibrary
 
     public string Root { get; }
 
+    /// <summary>Servisní složka s databází a zálohami (zálohuje ji Synology Drive). Ve stromu se nezobrazuje.</summary>
+    public const string DatabaseFolder = "Fotoalbum – databáze (nemazat)";
+
+    /// <summary>Originály fotek před odstraněním starého vepsaného textu (etapa 4). Ve stromu se nezobrazuje.</summary>
+    public const string OriginalsFolder = "Fotoalbum – originály (nemazat)";
+
+    /// <summary>Starší název servisní složky (před 12. 11. 2026).</summary>
+    public const string LegacyDatabaseFolder = "_fotoalbum";
+    /// <summary>Starší název složky originálů (jen kvůli kopírování z karty).</summary>
+    public const string LegacyOriginalsFolder = "_originaly";
+
+    public string DatabaseDir => Path.Combine(Root, DatabaseFolder);
+
     public static bool IsPhotoFile(string name)
     {
         var ext = Path.GetExtension(name);
@@ -29,7 +42,26 @@ public sealed class PhotoLibrary
     }
 
     public static bool IsIgnoredDir(string name) =>
-        name.StartsWith('.') || name.StartsWith('_') || IgnoredDirs.Contains(name);
+        name.StartsWith('.') || name.StartsWith('_') || IgnoredDirs.Contains(name)
+        || name.Equals(DatabaseFolder, StringComparison.OrdinalIgnoreCase)
+        || name.Equals(OriginalsFolder, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Přejmenuje starou servisní složku „_fotoalbum“ na nový srozumitelný název –
+    /// jen pokud je opravdu naše (obsahuje zálohy katalogu), cizí složku nikdy nepřejmenuje.
+    /// </summary>
+    public void MigrateServiceFolders()
+    {
+        var oldDir = Path.Combine(Root, LegacyDatabaseFolder);
+        try
+        {
+            if (!Directory.Exists(oldDir) || Directory.Exists(DatabaseDir)) return;
+            var ours = Directory.Exists(Path.Combine(oldDir, "zaloha"))
+                && Directory.EnumerateFiles(Path.Combine(oldDir, "zaloha"), "katalog-*.db").Any();
+            if (ours) Directory.Move(oldDir, DatabaseDir);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { /* zkusí se příště */ }
+    }
 
     /// <summary>Převede relativní cestu na absolutní a ověří, že leží uvnitř kořene.</summary>
     public string Resolve(string relative)

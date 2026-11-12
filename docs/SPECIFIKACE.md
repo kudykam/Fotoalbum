@@ -166,6 +166,8 @@ Mají přednost před starším textem této specifikace, kde se liší.
 
 **Ověřeno uživatelem:** zápis popisků do fotek (ExifTool OK), ikona u hodin, kopírování z karty, ostatní funkce etapy 1.
 
+**Stav:** implementováno (kromě bodů pro etapu 2 – korektura, značka „jen ruční text“, nadpis od AI). Nadpis je zatím první věta popisku. Rozepsaný text se pro případ nečekaného zavření drží v okně aplikace (neukládá se do fotky ani do historie) a po dalším otevření se nabídne.
+
 ## 3. Diktování a AI
 
 ### 3.1 Dvě vrstvy textu u každé fotky

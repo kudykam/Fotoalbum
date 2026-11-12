@@ -43,7 +43,7 @@ internal sealed class TrayContext : ApplicationContext
 
         _tray = new NotifyIcon
         {
-            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
+            Icon = AppIcon.Load(SystemInformation.SmallIconSize),
             Text = "Fotoalbum",
             ContextMenuStrip = menu,
             Visible = true,
@@ -248,6 +248,21 @@ internal sealed class TrayContext : ApplicationContext
             }
         }
         catch (Exception e) { Log.Error(e); }
+    }
+
+    internal static class AppIcon
+    {
+        /// <summary>Ikona Fotoalba v požadované velikosti (ostrá i u hodin).</summary>
+        public static Icon Load(Size size)
+        {
+            try
+            {
+                var file = Path.Combine(AppContext.BaseDirectory, "fotoalbum.ico");
+                if (File.Exists(file)) return new Icon(file, size);
+            }
+            catch (Exception e) { Log.Error(e); }
+            return Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
+        }
     }
 
     internal static void OpenFolder(string path)

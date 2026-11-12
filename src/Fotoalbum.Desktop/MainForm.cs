@@ -20,7 +20,7 @@ internal sealed class MainForm : Form
     {
         _server = server;
         Text = "Fotoalbum";
-        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        Icon = TrayContext.AppIcon.Load(new Size(32, 32));
         WindowState = FormWindowState.Maximized;
         MinimumSize = new Size(1000, 640);
         BackColor = Color.FromArgb(245, 247, 245);

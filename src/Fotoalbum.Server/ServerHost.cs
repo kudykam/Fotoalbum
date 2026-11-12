@@ -134,7 +134,7 @@ public static class ServerHost
         api.MapGet("/photo", (string path) => Results.Json(s.GetPhoto(path)));
         api.MapPut("/photo/caption", (CaptionRequest r) => Results.Json(s.SaveCaption(r.Path, r.Caption ?? "", r.IsDraft)));
         api.MapPost("/photo/flags", (FlagsRequest r) =>
-            Results.Json(s.SetFlags(r.Path, r.Skip, r.MarkedDelete, r.Rotation, r.Everyday, r.ClearEveryday)));
+            Results.Json(s.SetFlags(r.Path, r.Skip, r.MarkedDelete, r.Rotation)));
         api.MapPost("/photo/leave", (PositionRequest r) => { s.Leave(r.Folder, r.Path); return Results.Ok(); });
         api.MapPost("/photo/position", (PositionRequest r) => { s.SetPosition(r.Folder, r.Path); return Results.Ok(); });
         api.MapGet("/photo/history", (string path) => Results.Json(s.History(path)));
@@ -169,6 +169,6 @@ public static class ServerHost
 public sealed record SettingsRequest(string? PhotoRoot, string? ExifToolPath, bool? AutoImport);
 public sealed record FolderKindRequest(string Path, string? Kind);
 public sealed record CaptionRequest(string Path, string? Caption, bool IsDraft);
-public sealed record FlagsRequest(string Path, bool? Skip, bool? MarkedDelete, int? Rotation, bool? Everyday, bool ClearEveryday);
+public sealed record FlagsRequest(string Path, bool? Skip, bool? MarkedDelete, int? Rotation);
 public sealed record PositionRequest(string Folder, string Path);
 public sealed record QuitRequest(bool? MoveMarkedToBin);
