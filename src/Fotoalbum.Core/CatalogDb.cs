@@ -40,7 +40,6 @@ public sealed class PhotoRecord
         MarkedDelete ? PhotoStatus.MarkedDelete
         : Caption.Trim().Length > 0 ? (IsDraft ? PhotoStatus.Draft
             : CaptionSource == Core.CaptionSource.Manual ? PhotoStatus.Manual : PhotoStatus.Done)
-        : RawDictation.Trim().Length > 0 ? PhotoStatus.Draft
         : Skip ? PhotoStatus.Skip
         : PhotoStatus.None;
 
@@ -183,13 +182,15 @@ public sealed class CatalogDb : IDisposable
     }
 
     public PhotoRecord SaveCaption(string path, string caption, bool isDraft, string source = "uzivatel",
-        string captionSource = CaptionSource.Manual, string? title = null)
+        string captionSource = CaptionSource.Manual, string? title = null, string? rawDictation = null)
     {
         lock (_lock)
         {
             var rec = GetOrCreate(path);
             caption = caption.Replace("\r\n", "\n").TrimEnd();
-            if (rec.Caption == caption && rec.IsDraft == isDraft && rec.CaptionSource == captionSource && rec.Title == title) return rec;
+            if (rec.Caption == caption && rec.IsDraft == isDraft && rec.CaptionSource == captionSource && rec.Title == title
+                && (rawDictation is null || rec.RawDictation == rawDictation)) return rec;
+            if (rawDictation is not null) rec.RawDictation = rawDictation.Trim();
             rec.Caption = caption;
             rec.IsDraft = isDraft;
             rec.CaptionSource = captionSource;

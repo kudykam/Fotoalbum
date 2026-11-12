@@ -9,7 +9,7 @@ public sealed record FolderDto(string Path, string Name, string Kind, bool KindI
     List<FolderDto> Children);
 
 public sealed record PhotoDto(string Path, string Name, string? Date, string Status, string Caption, bool IsDraft,
-    int Rotation, bool Vacation, string? Title, bool WritePending, string? WriteError, string Source);
+    int Rotation, bool Vacation, string? Title, bool WritePending, string? WriteError, string Source, string? Raw);
 
 public sealed record FolderPhotosDto(string Folder, string? LastPhoto, List<PhotoDto> Photos);
 
@@ -201,11 +201,12 @@ public sealed class FotoalbumService : IDisposable
     }
 
     /// <param name="source">Původ textu: „manual“ (psaní/diktát bez korektury) nebo „ai“ (po korektuře).</param>
-    public PhotoDto SaveCaption(string path, string caption, bool isDraft, string? source = null, string? title = null)
+    /// <param name="raw">Původní diktát, ze kterého AI popisek vytvořila (pro opakovanou korekturu).</param>
+    public PhotoDto SaveCaption(string path, string caption, bool isDraft, string? source = null, string? title = null, string? raw = null)
     {
         EnsurePhoto(path);
         var src = source is CaptionSource.Ai or CaptionSource.File ? source : CaptionSource.Manual;
-        Db.SaveCaption(path, caption, isDraft, captionSource: src, title: src == CaptionSource.Ai ? title : null);
+        Db.SaveCaption(path, caption, isDraft, captionSource: src, title: src == CaptionSource.Ai ? title : null, rawDictation: raw);
         Writer.Schedule(path);
         return GetPhoto(path);
     }
@@ -354,7 +355,7 @@ public sealed class FotoalbumService : IDisposable
         };
         return new PhotoDto(path, Path.GetFileName(path), r.DateTaken, status, r.Caption, r.IsDraft, r.Rotation,
             folderKind == FolderKind.Vacation, r.IsDraft ? null : r.Title ?? CaptionTitle.From(r.Caption), r.NeedsFileWrite, r.WriteError,
-            r.CaptionSource);
+            r.CaptionSource, r.RawDictation.Length > 0 ? r.RawDictation : null);
     }
 
     public void Dispose()

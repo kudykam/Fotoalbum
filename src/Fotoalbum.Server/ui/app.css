@@ -119,7 +119,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .progress{flex:none;font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .progress b{color:var(--ink);font-size:17px}
 
-.work{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(360px,26vw,480px);gap:14px}
+.work{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(380px,28vw,540px);gap:14px}
 .panel{display:flex;flex-direction:column;gap:14px;min-height:0;min-width:0}
 .stage{position:relative;min-height:220px;background:var(--stage);border-radius:10px;display:grid;place-items:center;overflow:hidden}
 .stage img{display:block;transition:transform .3s ease;max-width:none}
@@ -153,17 +153,26 @@ button,input,select,textarea{font:inherit;color:inherit}
 .cap-h .capbtn{margin-left:4px}
 .save.ok{color:var(--accent)}
 .save svg{width:18px;height:18px}
-textarea{width:100%;border:0;resize:none;background:transparent;font-family:var(--text);font-size:21px;line-height:1.5;color:var(--ink);flex:1;min-height:110px;padding:2px 0}
+textarea{width:100%;border:0;resize:none;background:transparent;font-family:var(--text);font-size:19px;line-height:1.5;color:var(--ink);flex:1;min-height:110px;padding:2px 0}
 textarea:focus{outline:none}
 textarea::placeholder{color:var(--muted);font-style:italic}
 .warn{background:var(--warn-soft);border-radius:8px;padding:8px 10px;font-size:15px}
 
 .btns{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.aibtns{grid-template-columns:1.25fr 1fr}
-.b.mic{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-size:20px;min-height:70px}
+.aibtns{grid-template-columns:1fr 1fr}
+.b.mic{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-size:17px;min-height:56px;padding:6px 10px}
+.aibtns .b svg{width:22px;height:22px}
+.aibtns .b span{line-height:1.15}
 .b.mic.on{background:var(--rec);border-color:var(--rec);color:var(--rec-ink);animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 8px var(--rec-soft)}}
-.b.ai{border-color:var(--accent);color:var(--accent);min-height:70px;font-size:20px}
+.b.ai{border-color:var(--accent);color:var(--accent);min-height:56px;font-size:17px;padding:6px 10px}
+/* velké okno s diktovaným textem přes spodní část fotky – posouvá se, aby bylo vidět poslední napsané */
+.dictbox{position:absolute;left:14px;right:14px;bottom:14px;max-height:48%;display:flex;flex-direction:column;gap:8px;background:rgba(10,14,12,.88);color:#f5f2ea;border-radius:14px;padding:14px 20px 16px;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.dlabel{font-size:16px;font-weight:700;color:#ff9b94}
+.dtext{font-family:var(--text);font-size:clamp(20px,1.6vw,28px);line-height:1.45;overflow-y:auto;scroll-behavior:smooth}
+.dtext:empty::before{content:"Mluvte, text se objeví po větách…";color:#a9b4ae;font-style:italic}
+.rawbox{border-top:1px dashed var(--line);padding-top:8px;display:grid;gap:8px}
+.rawtxt{font-family:var(--text);font-size:16px;color:var(--muted);max-height:140px;overflow:auto}
 .recbar{font-size:16px;font-weight:700;color:var(--rec)}
 .shimmer{height:6px;border-radius:99px;background:linear-gradient(90deg,var(--accent-soft),var(--accent),var(--accent-soft));background-size:200% 100%;animation:sh 1s linear infinite}
 @keyframes sh{to{background-position:-200% 0}}

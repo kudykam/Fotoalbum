@@ -298,8 +298,8 @@ async function run(fn) {
 }
 
 /* ---------- ukládání popisku ---------- */
-async function saveCaption(p, text, source, title) {
-  const d = await api("PUT", "/api/photo/caption", { path: p.path, caption: text, isDraft: false, source: source || "manual", title: title || null });
+async function saveCaption(p, text, source, title, raw) {
+  const d = await api("PUT", "/api/photo/caption", { path: p.path, caption: text, isDraft: false, source: source || "manual", title: title || null, raw: raw ?? null });
   Object.assign(p, d);
   if (S.cur === p) S.saved = d.caption;
   if (S.fUndone && handled(p)) S.keep.add(p.path);
@@ -459,6 +459,14 @@ function renderCaption(newPhoto) {
   rb.hidden = !(R.on || R.pending);
   rb.textContent = R.on ? `● Nahrávám ${fmtTime(performance.now() - R.started)} – mluvte, text se objeví po větách${R.pending ? " (přepisuji…)" : ""}` : R.pending ? "Přepisuji poslední větu…" : "";
   $("busyBar").hidden = !S.aiWorking;
+  // původní diktát u popisku po korektuře
+  const hasRaw = !!(p && p.source === "ai" && p.raw && p.raw !== ta.value);
+  $("rawBtn").hidden = !hasRaw;
+  if (!hasRaw) S.showRaw = false;
+  $("rawBtn").textContent = S.showRaw ? "Skrýt původní text" : "Původní text";
+  $("rawBox").hidden = !S.showRaw;
+  if (S.showRaw) $("rawTxt").textContent = p.raw;
+  renderDict();
   ta.placeholder = p && p.status === "skip" ? "Fotka je označená „bez popisku“. Když začnete psát, značka zmizí." : "Napište, co je na fotce.";
   const s = $("save");
   const ok = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg>';
@@ -488,7 +496,8 @@ function renderButtons() {
   $("mic").disabled = !p || p.status === "del" || (S.busy && !R.on);
   $("micT").textContent = R.on ? "Zastavit " + fmtTime(performance.now() - R.started) : fixMode ? "Diktovat úpravu" : "Diktovat";
   $("ai").disabled = lock || R.on || R.pending > 0 || !($("ta").value.trim() || S.fixText);
-  $("aiT").textContent = S.aiWorking ? "Upravuji…" : S.fixText ? "Použít úpravu" : "Korektura";
+  const redoMode = p && p.source === "ai" && !isDirty() && !S.fixText;
+  $("aiT").textContent = S.aiWorking ? "Upravuji…" : S.fixText ? "Použít úpravu" : redoMode ? "Upravit znovu" : "Korektura";
   if (R.on) { $("prev").disabled = $("next").disabled = $("skip").disabled = $("undo").disabled = $("redo").disabled = true; }
 }
 
@@ -616,6 +625,16 @@ function flushSegment() {
     finally { R.pending--; renderCaption(false); renderButtons(); }
   });
 }
+/** Velké okno s právě diktovaným textem přes spodní část fotky. */
+function renderDict() {
+  const box = $("dictbox"), show = R.on || R.pending > 0;
+  box.hidden = !show; if (!show) return;
+  $("dlabel").textContent = R.on
+    ? `● ${R.mode === "fix" ? "Diktujete úpravu" : "Diktujete"} ${fmtTime(performance.now() - R.started)} – stiskněte Zastavit, až budete hotovi`
+    : "Přepisuji poslední větu…";
+  const el = $("dtext"), text = R.mode === "fix" ? (S.fixText || "") : $("ta").value;
+  if (el.textContent !== text) { el.textContent = text; el.scrollTop = el.scrollHeight; }
+}
 /** Pojistka: přepis, který jen opakuje konec už napsaného textu, se nepřidá. */
 function isRepeat(text, prev) {
   const norm = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -627,6 +646,7 @@ function appendDictation(text, mode) {
   else {
     const ta = $("ta");
     ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, "") + " " : "") + text;
+    ta.scrollTop = ta.scrollHeight; // vždy vidět poslední napsané
     draftSave(S.cur.path, ta.value);
   }
   renderCaption(false); renderButtons();
@@ -664,14 +684,17 @@ function encodeWav(chunks, len, rate) {
 async function improveCaption() {
   const p = S.cur; if (!p || S.busy || R.on) return;
   const typed = $("ta").value, fix = !!S.fixText;
-  if (!fix && !typed.trim()) { toast("Nejdřív nadiktujte nebo napište, co je na fotce."); return; }
+  // opakovaná korektura (např. po změně délky v nastavení) vychází z původního diktátu
+  const redo = !fix && p.source === "ai" && !isDirty();
+  const dictation = redo ? (p.raw || typed) : typed;
+  if (!fix && !dictation.trim()) { toast("Nejdřív nadiktujte nebo napište, co je na fotce."); return; }
   S.aiWorking = true; renderCaption(false);
   await run(async () => {
     try {
       const before = isDirty() ? { c: typed, s: "manual" } : snap(p);
       const r = fix ? await api("POST", "/api/ai/fix", { path: p.path, caption: typed, instruction: S.fixText })
-        : await api("POST", "/api/ai/improve", { path: p.path, dictation: typed });
-      await saveCaption(p, r.caption, "ai", r.title);
+        : await api("POST", "/api/ai/improve", { path: p.path, dictation });
+      await saveCaption(p, r.caption, "ai", r.title, fix ? (p.raw || null) : dictation);
       $("ta").value = S.saved; draftClear(); S.fixText = "";
       record({ t: "caption", path: p.path, before, after: { c: r.caption, s: "ai", t: r.title } });
     } finally { S.aiWorking = false; }
@@ -795,6 +818,8 @@ $("next").onclick = $("pR").onclick = () => step(1);
 $("skip").onclick = skipPhoto;
 $("mic").onclick = () => R.on ? recStop() : recStart();
 $("ai").onclick = improveCaption;
+$("rawBtn").onclick = () => { S.showRaw = !S.showRaw; renderCaption(false); };
+$("useRaw").onclick = () => { const p = S.cur; if (!p || !p.raw) return; $("ta").value = p.raw; S.showRaw = false; draftSave(p.path, p.raw); renderCaption(false); renderButtons(); toast("Původní text je v poli. Můžete ho upravit a znovu dát Korekturu."); };
 $("nextUndone").onclick = nextUndone;
 $("undo").onclick = undo;
 $("redo").onclick = redo;

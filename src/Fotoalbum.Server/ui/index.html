@@ -51,6 +51,7 @@
             <img id="photo" alt="">
             <div class="meta" id="meta"></div>
             <div class="state" id="state"></div>
+            <div class="dictbox" id="dictbox" hidden><div class="dlabel" id="dlabel"></div><div class="dtext" id="dtext"></div></div>
             <div class="loading" id="loading" hidden><span class="spin"></span>Načítám složku…</div>
             <button class="nav l" id="pL" aria-label="Předchozí fotka"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 5l-7 7 7 7"/></svg></button>
             <button class="nav r" id="pR" aria-label="Další fotka"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg></button>
@@ -58,10 +59,12 @@
           <div class="panel">
             <section class="cap" id="cap">
               <div class="cap-h"><span class="mode" id="mode"></span><span class="save" id="save"></span>
+                <button class="linkbtn" id="rawBtn" hidden>Původní text</button>
                 <button class="capbtn" id="clear" title="Smazat celý popisek"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Smazat text</button></div>
               <div class="recbar" id="recbar" hidden></div>
               <div id="busyBar" hidden class="shimmer"></div>
               <textarea id="ta" rows="3" placeholder="Napište, co je na fotce. Ukládá se samo."></textarea>
+              <div class="rawbox" id="rawBox" hidden><div class="rawtxt" id="rawTxt"></div><button class="b small" id="useRaw">Vrátit původní text do pole</button></div>
               <div class="fix" id="fix" hidden><span class="lbl">Pokyn k úpravě</span><span class="t" id="fixT"></span></div>
               <div class="warn" id="writeErr" hidden></div>
             </section>
