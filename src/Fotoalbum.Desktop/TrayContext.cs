@@ -22,6 +22,7 @@ internal sealed class TrayContext : ApplicationContext
     private readonly HashSet<string> _queued = new(StringComparer.OrdinalIgnoreCase);
     private readonly RegisteredWaitHandle _showWait;
     private RunningServer? _server;
+    private Updater? _updater;
     private MainForm? _window;
     private bool _importBusy;
     private bool _exitAfterWindowCloses;
@@ -52,7 +53,7 @@ internal sealed class TrayContext : ApplicationContext
 
         // Fotoalbum se samo zařadí mezi programy spouštěné s Windows (aby fungovalo kopírování z karty);
         // když to uživatel v menu vypne, už se to znovu nezapne.
-        if (!IsAutostart() && !AutostartWasDisabled()) { SetAutostart(true); autostart.Checked = true; }
+        if (!AutostartWasDisabled() && (!IsAutostart() || !AutostartPointsHere())) { SetAutostart(true); autostart.Checked = true; }
 
         // Druhé spuštění Fotoalba (ikona na ploše) jen otevře okno této instance.
         _showWait = ThreadPool.RegisterWaitForSingleObject(showSignal, (_, _) => _ui.Post(__ => ShowWindow(), null), null, -1, false);
@@ -74,6 +75,16 @@ internal sealed class TrayContext : ApplicationContext
                 PickFolder = PickFolderAsync,
             });
             _server.QuitRequested += () => _ui.Post(_ => _window?.CloseConfirmed(), null);
+
+            var updatedTo = JustUpdatedTo();
+            if (updatedTo is not null) _tray.ShowBalloonTip(6000, "Fotoalbum", $"Fotoalbum bylo aktualizováno na verzi {updatedTo}.", ToolTipIcon.Info);
+            _updater = new Updater(_server.Service, updatedTo);
+            _server.Options.Updates = _updater;
+            // aktualizace se instaluje jen když okno není otevřené (nikdy uprostřed práce)
+            _updater.Ready += () => _ui.Post(_ =>
+            {
+                if (_window is null) _updater.ApplyIfReady(Shutdown);
+            }, null);
             if (!startHidden) ShowWindow();
             // Karta mohla být zasunutá už při spuštění.
             await Task.Delay(TimeSpan.FromSeconds(startHidden ? 20 : 3));
@@ -104,6 +115,7 @@ internal sealed class TrayContext : ApplicationContext
         {
             _window = null;
             if (_exitAfterWindowCloses) FinishExit();
+            else if (_updater?.ApplyIfReady(Shutdown) == true) { /* program se aktualizuje a sám znovu spustí u hodin */ }
             else _tray.ShowBalloonTip(4000, "Fotoalbum", "Vše je uloženo. Fotoalbum dál hlídá kartu z fotoaparátu – ikona je tady u hodin.", ToolTipIcon.Info);
         };
         _window.Show();
@@ -222,6 +234,26 @@ internal sealed class TrayContext : ApplicationContext
 
     // ---------- spouštění s Windows ----------
 
+    /// <summary>Vrátí novou verzi, pokud se program od minulého spuštění aktualizoval (a zapamatuje si aktuální).</summary>
+    private static string? JustUpdatedTo()
+    {
+        try
+        {
+            var file = Path.Combine(new AppPaths().DataDir, "posledni-verze.txt");
+            var now = ServerHost.AppVersion();
+            var before = File.Exists(file) ? File.ReadAllText(file).Trim() : null;
+            File.WriteAllText(file, now);
+            return before is not null && before != now ? now : null;
+        }
+        catch (IOException) { return null; }
+    }
+
+    private static bool AutostartPointsHere()
+    {
+        using var k = Registry.CurrentUser.OpenSubKey(RunKey);
+        return k?.GetValue(RunName) is string v && v.Contains(Environment.ProcessPath ?? "\0", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsAutostart()
     {
         using var k = Registry.CurrentUser.OpenSubKey(RunKey);
@@ -277,6 +309,7 @@ internal sealed class TrayContext : ApplicationContext
         _tray.Visible = false;
         _tray.Dispose();
         _watcher.Dispose();
+        _updater?.Dispose();
         try { _server?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(10)); } catch (Exception e) { Log.Error(e); }
         base.ExitThreadCore();
     }

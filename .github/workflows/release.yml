@@ -1,0 +1,80 @@
+name: Vydání (aktualizace)
+
+# Vydání se spustí značkou (tagem):
+#   v0.3.0-test.1  -> testovací kanál (pre-release, jen pro správce)
+#   v0.3.0         -> stabilní kanál (schválená verze, dostane ji děda)
+on:
+  push:
+    tags: [ "v*" ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Instalátor a aktualizace pro Windows
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Verze a kanál ze značky
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart('v')
+          $ch = if ($ver -match '-test') { 'test' } else { 'stable' }
+          "VER=$ver" >> $env:GITHUB_ENV
+          "CH=$ch" >> $env:GITHUB_ENV
+          Write-Host "Verze $ver, kanál $ch"
+
+      - name: Testy
+        run: dotnet build -c Release src/Fotoalbum.Desktop
+
+      - name: Sestavení aplikace
+        run: dotnet publish src/Fotoalbum.Desktop -c Release -r win-x64 --self-contained -o out/Fotoalbum -p:Version=${{ env.VER }}
+
+      - name: Přibalit ExifTool
+        shell: pwsh
+        run: |
+          $page = (Invoke-WebRequest -UseBasicParsing -MaximumRetryCount 4 -RetryIntervalSec 15 https://exiftool.org/).Content
+          $zip = [regex]::Match($page, 'exiftool-[0-9.]+_64\.zip').Value
+          if (-not $zip) { throw "Na exiftool.org nebyl nalezen balíček pro Windows." }
+          try {
+            Invoke-WebRequest -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 15 "https://exiftool.org/$zip" -OutFile exiftool.zip
+          } catch {
+            Invoke-WebRequest -UseBasicParsing -MaximumRetryCount 3 -RetryIntervalSec 15 -UserAgent "Wget" "https://sourceforge.net/projects/exiftool/files/$zip/download" -OutFile exiftool.zip
+          }
+          Expand-Archive exiftool.zip -DestinationPath exiftool-tmp
+          $exe = Get-ChildItem exiftool-tmp -Recurse -Filter "exiftool*.exe" | Select-Object -First 1
+          New-Item -ItemType Directory -Force out/Fotoalbum/exiftool | Out-Null
+          Copy-Item -Recurse "$($exe.DirectoryName)/*" out/Fotoalbum/exiftool/
+          if ($exe.Name -ne "exiftool.exe") { Rename-Item "out/Fotoalbum/exiftool/$($exe.Name)" exiftool.exe }
+          & out/Fotoalbum/exiftool/exiftool.exe -ver
+
+      - name: Velopack
+        run: dotnet tool install -g vpk --version 1.2.158
+
+      - name: Předchozí verze (kvůli malým rozdílovým aktualizacím)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $pre = if ($env:CH -eq 'test') { '--pre' } else { '' }
+          vpk download github --repoUrl https://github.com/${{ github.repository }} --channel $env:CH --token ${{ secrets.GITHUB_TOKEN }} $pre -o releases
+
+      - name: Balíček a instalátor
+        run: vpk pack -u Fotoalbum.App -v ${{ env.VER }} -p out/Fotoalbum -e Fotoalbum.exe --packTitle Fotoalbum --packAuthors Fotoalbum -i src/Fotoalbum.Desktop/fotoalbum.ico -c ${{ env.CH }} -o releases
+
+      - name: Zveřejnit vydání
+        shell: pwsh
+        run: |
+          $args = @('upload','github','--repoUrl',"https://github.com/${{ github.repository }}",'--token','${{ secrets.GITHUB_TOKEN }}',
+                    '--channel',$env:CH,'-o','releases','--publish','--releaseName',"Fotoalbum $env:VER",'--tag','${{ github.ref_name }}')
+          if ($env:CH -eq 'test') { $args += '--pre' }
+          vpk @args

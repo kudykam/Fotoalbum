@@ -1,3 +1,6 @@
+using Microsoft.Win32;
+using Velopack;
+
 namespace Fotoalbum.Desktop;
 
 internal static class Program
@@ -9,6 +12,16 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        // Velopack musí běžet jako úplně první: instalace, odinstalace a dokončení aktualizace.
+        VelopackApp.Build()
+            .OnBeforeUninstallFastCallback(_ =>
+            {
+                // při odinstalaci zrušit spouštění s Windows
+                using var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
+                k?.DeleteValue("Fotoalbum", throwOnMissingValue: false);
+            })
+            .Run();
+
         var user = Environment.UserName;
         using var single = new Mutex(true, "Fotoalbum-" + user, out var first);
         using var showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, "Fotoalbum-Ukazat-" + user);

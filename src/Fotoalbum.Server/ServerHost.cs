@@ -16,19 +16,24 @@ public sealed class ServerOptions
     public Func<Task<string?>>? PickFolder { get; set; }
     /// <summary>Jméno hostitele zobrazené v rozhraní („pc“ = Windows aplikace, „web“ = prohlížeč).</summary>
     public string HostKind { get; set; } = "web";
+    /// <summary>Aktualizace (jen Windows aplikace).</summary>
+    public IAppUpdates? Updates { get; set; }
 }
 
 /// <summary>Běžící server: webové rozhraní + API nad <see cref="FotoalbumService"/>.</summary>
 public sealed class RunningServer : IAsyncDisposable
 {
-    internal RunningServer(WebApplication app, FotoalbumService service, string token)
+    internal RunningServer(WebApplication app, FotoalbumService service, string token, ServerOptions options)
     {
+        Options = options;
         App = app;
         Service = service;
         Token = token;
     }
 
     public WebApplication App { get; }
+    /// <summary>Nastavení serveru; některé části (např. aktualizace) jde doplnit až po spuštění.</summary>
+    public ServerOptions Options { get; }
     public FotoalbumService Service { get; }
     public string Token { get; }
     public string BaseUrl => App.Urls.First().Replace("0.0.0.0", "127.0.0.1").TrimEnd('/');
@@ -49,6 +54,16 @@ public sealed class RunningServer : IAsyncDisposable
 
 public static class ServerHost
 {
+    /// <summary>Verze sestavení (např. 0.3.0), bez doplňku za „+“.</summary>
+    public static string AppVersion()
+    {
+        var v = System.Reflection.Assembly.GetEntryAssembly()?
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "0.0.0";
+        var plus = v.IndexOf('+');
+        return plus > 0 ? v[..plus] : v;
+    }
+
     private const string CookieName = "fotoalbum_klic";
 
     public static async Task<RunningServer> StartAsync(ServerOptions options)
@@ -61,7 +76,7 @@ public static class ServerHost
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
         builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
         var app = builder.Build();
-        var running = new RunningServer(app, service, token);
+        var running = new RunningServer(app, service, token, options);
 
         app.Use(async (ctx, next) =>
         {
@@ -112,7 +127,24 @@ public static class ServerHost
         var s = running.Service;
         var api = app.MapGroup("/api");
 
-        api.MapGet("/state", () => Results.Json(new { state = s.GetState(), host = options.HostKind, canPickFolder = options.PickFolder is not null }));
+        api.MapGet("/state", () => Results.Json(new
+        {
+            state = s.GetState(), host = options.HostKind, canPickFolder = options.PickFolder is not null,
+            app = options.Updates?.Info ?? new AppUpdateInfo(AppVersion(), s.Settings.UpdateChannel, false, "unavailable", null, null, null),
+        }));
+
+        api.MapPost("/update/check", async () =>
+        {
+            if (options.Updates is null) return Results.StatusCode(501);
+            await options.Updates.CheckNowAsync();
+            return Results.Json(options.Updates.Info);
+        });
+        api.MapPost("/update/channel", async (ChannelRequest r) =>
+        {
+            if (options.Updates is null) return Results.StatusCode(501);
+            await options.Updates.SetChannelAsync(r.Channel);
+            return Results.Json(options.Updates.Info);
+        });
 
         api.MapPost("/settings", (SettingsRequest r) =>
         {
@@ -166,6 +198,7 @@ public static class ServerHost
     }
 }
 
+public sealed record ChannelRequest(string Channel);
 public sealed record SettingsRequest(string? PhotoRoot, string? ExifToolPath, bool? AutoImport);
 public sealed record FolderKindRequest(string Path, string? Kind);
 public sealed record CaptionRequest(string Path, string? Caption, bool IsDraft);

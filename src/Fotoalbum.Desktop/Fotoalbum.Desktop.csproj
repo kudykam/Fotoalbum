@@ -13,7 +13,7 @@
     <ApplicationIcon>fotoalbum.ico</ApplicationIcon>
     <RootNamespace>Fotoalbum.Desktop</RootNamespace>
     <Product>Fotoalbum</Product>
-    <Version>0.1.0</Version>
+    <Version>0.3.0</Version>
     <!-- Balíček WebView2 obsahuje i WPF variantu; konflikt verzí WindowsBase se nás netýká. -->
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
   </PropertyGroup>
@@ -25,6 +25,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <PackageReference Include="Velopack" Version="1.2.158" />
   </ItemGroup>
 
   <!-- ExifTool pro Windows se přibalí, pokud leží v src/Fotoalbum.Desktop/exiftool (není v repozitáři). -->

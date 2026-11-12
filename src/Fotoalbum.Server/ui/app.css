@@ -28,6 +28,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 .screen{background:var(--accent-soft);border-radius:8px;padding:8px 14px;font-weight:700}
 .spacer{flex:1}
 .pending{font-size:15px;color:var(--muted)}
+.ver{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.upd{font-size:14px;color:var(--accent);background:var(--accent-soft);border-radius:99px;padding:4px 12px}
+.upd.err{color:var(--muted);background:var(--side)}
+.channels{display:grid;gap:4px}
+.card h2{margin:8px 0 0;font-size:20px}
 .close{border:1px solid var(--line);background:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:16px}
 .close:hover{background:var(--rec-soft);border-color:var(--rec)}
 

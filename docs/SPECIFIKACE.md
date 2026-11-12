@@ -168,6 +168,18 @@ Mají přednost před starším textem této specifikace, kde se liší.
 
 **Stav:** implementováno (kromě bodů pro etapu 2 – korektura, značka „jen ruční text“, nadpis od AI). Nadpis je zatím první věta popisku. Rozepsaný text se pro případ nečekaného zavření drží v okně aplikace (neukládá se do fotky ani do historie) a po dalším otevření se nabídne.
 
+### 2.8 Automatické aktualizace (schváleno 12. 11. 2026)
+- Zdroj: **GitHub Releases** repozitáře (veřejné, bez přihlášení). Nástroj **Velopack** (MIT): instalace do profilu uživatele bez práv správce, rozdílové aktualizace, kontrola celistvosti.
+- **Dva kanály:**
+  - **stabilní** – jen verze schválené správcem („vydej to dědovi“); výchozí, má ho děda,
+  - **testovací** – každá nová zkušební verze; **jen pro správce**, přepíná se ve skrytém nastavení (Ctrl+Alt+S → Aktualizace). Z GitHubu se nic ručně nestahuje.
+  - Návrat z testovacího na stabilní kanál nainstaluje poslední stabilní verzi.
+- **Kontrola:** minutu po spuštění a pak každých 6 hodin; nová verze se **stáhne potichu na pozadí**.
+- **Instalace:** jen když se nepracuje – **při příštím startu** programu/počítače, nebo **po zavření okna** (Fotoalbum běží jen u hodin) → po instalaci se samo znovu spustí u hodin. Nikdy uprostřed práce.
+- **V záhlaví programu** je vidět aktuální verze (u testovací „· test“). Je-li stažená nová verze: malá nenápadná zpráva „Nová verze X – nainstaluje se po zavření okna“; po aktualizaci krátké oznámení „Fotoalbum bylo aktualizováno na verzi X“.
+- Data (nastavení, databáze, náhledy) zůstávají v `%LOCALAPPDATA%\Fotoalbum`; program se instaluje do `%LOCALAPPDATA%\Fotoalbum.App`.
+- Vydání: tag `vX.Y.Z-test.N` = testovací (pre-release), `vX.Y.Z` = stabilní. Sestavuje GitHub Actions (instalátor `Setup.exe` + balíčky aktualizací). Jednorázově je potřeba program nainstalovat instalátorem.
+
 ## 3. Diktování a AI
 
 ### 3.1 Dvě vrstvy textu u každé fotky

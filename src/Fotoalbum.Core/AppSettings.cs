@@ -16,6 +16,9 @@ public sealed class AppSettings
 
     /// <summary>Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky (Fotoalbum běží na pozadí u hodin).</summary>
     public bool AutoImport { get; set; } = true;
+
+    /// <summary>Kanál aktualizací: „stable“ (výchozí, schválené verze) nebo „test“ (jen pro správce).</summary>
+    public string UpdateChannel { get; set; } = "stable";
 }
 
 /// <summary>Umístění dat aplikace mimo složku s fotkami.</summary>

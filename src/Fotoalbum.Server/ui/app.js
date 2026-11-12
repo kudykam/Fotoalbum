@@ -66,7 +66,7 @@ const handled = p => p.status === "done" || p.status === "skip";
 async function boot() {
   try {
     const r = await api("GET", "/api/state");
-    S.state = r.state; S.host = r.host; S.canPick = r.canPickFolder;
+    S.state = r.state; S.host = r.host; S.canPick = r.canPickFolder; renderApp(r.app);
   } catch (e) {
     document.body.innerHTML = `<div class="setup"><div class="card"><h1>Fotoalbum</h1><p>${esc(e.message)}</p></div></div>`;
     return;
@@ -94,6 +94,7 @@ function showSetup(first) {
       ? `Zápis popisků do fotek je připravený (ExifTool ${esc(st.exifToolVersion || "")}).`
       : "Chybí program ExifTool, bez něj se popisky nezapíší do fotek (ukládají se jen v aplikaci). Umístěte <b>exiftool.exe</b> do složky <b>exiftool</b> vedle aplikace."}</div>
     <label class="toggle" style="font-weight:400"><input type="checkbox" id="autoImp" ${st.autoImport ? "checked" : ""}> Po připojení karty z fotoaparátu automaticky zkopírovat nové fotky a videa (do složek „rok + roční období“, např. „2026 léto“)</label>
+    ${first ? "" : updatesSection()}
     ${first ? "" : `<p style="font-size:15px">Data aplikace (databáze, náhledy) jsou v profilu uživatele. Záloha databáze se ukládá do složky <b>Fotoalbum – databáze (nemazat)</b> ve složce s fotkami.</p>`}
   </div>`;
   if (S.canPick) $("pick").onclick = async () => {
@@ -107,6 +108,50 @@ function showSetup(first) {
     } catch (e) { fail(e); }
   };
   if (!first) $("back").onclick = () => { el.hidden = true; $("work").hidden = false; };
+  if (!first && S.app && S.app.installed) {
+    document.querySelectorAll("[name=chan]").forEach(r => r.onchange = async () => {
+      setUpdMsg("Přepínám kanál a hledám verzi…");
+      try { renderApp(await api("POST", "/api/update/channel", { channel: r.value })); setUpdMsg(updText(S.app)); } catch (e) { fail(e); }
+    });
+    $("updCheck").onclick = async () => {
+      setUpdMsg("Hledám novou verzi…");
+      try { renderApp(await api("POST", "/api/update/check")); setUpdMsg(updText(S.app)); } catch (e) { fail(e); }
+    };
+  }
+}
+
+/* ---------- verze a aktualizace (specifikace 2.8) ---------- */
+function updText(a) {
+  return ({
+    ready: `Nová verze ${a.newVersion} je stažená – nainstaluje se po zavření okna.`,
+    downloading: "Stahuji novou verzi…", checking: "Hledám novou verzi…",
+    uptodate: "Máte nejnovější verzi.", error: a.message || "Kontrola aktualizací se nepovedla.",
+    unavailable: "Aktualizace fungují jen u verze nainstalované instalátorem.",
+  })[a.status] || "";
+}
+function setUpdMsg(t) { const el = $("updMsg"); if (el) el.textContent = t; }
+function updatesSection() {
+  const a = S.app || {};
+  if (!a.installed) return `<h2>Aktualizace</h2><p>Verze ${esc(a.version || "")}. Automatické aktualizace fungují jen u verze nainstalované instalátorem (Setup.exe).</p>`;
+  return `<h2>Aktualizace</h2>
+    <p>Nainstalovaná verze <b>${esc(a.version)}</b>. Nové verze se stahují samy a instalují se po zavření okna nebo při příštím startu.</p>
+    <div class="channels">
+      <label class="toggle" style="font-weight:400"><input type="radio" name="chan" value="stable" ${a.channel !== "test" ? "checked" : ""}> Stabilní verze (schválené – pro běžné používání)</label>
+      <label class="toggle" style="font-weight:400"><input type="radio" name="chan" value="test" ${a.channel === "test" ? "checked" : ""}> Testovací verze (jen pro správce – zkušební novinky)</label>
+    </div>
+    <div class="row"><button class="b small" id="updCheck">Zkontrolovat aktualizace teď</button></div>
+    <p id="updMsg">${esc(updText(a))}</p>`;
+}
+let shownUpdatedTo = false;
+function renderApp(a) {
+  if (!a) return;
+  S.app = a;
+  $("ver").textContent = "verze " + a.version + (a.channel === "test" ? " · test" : "");
+  const u = $("upd");
+  const msg = a.status === "ready" ? `Nová verze ${a.newVersion} – nainstaluje se po zavření okna`
+    : a.status === "downloading" ? "Stahuji novou verzi…" : "";
+  u.hidden = !msg; u.textContent = msg;
+  if (a.updatedTo && !shownUpdatedTo) { shownUpdatedTo = true; toast(`Fotoalbum bylo aktualizováno na verzi ${a.updatedTo}.`, null, 6000); }
 }
 
 /* ---------- strom složek ---------- */
@@ -266,7 +311,7 @@ function pollWrite(p) {
 }
 async function updatePending() {
   if (S.closed) return;
-  try { const r = await api("GET", "/api/state"); S.state = r.state; const n = r.state.pendingWrites; const el = $("pending"); el.hidden = !n; el.textContent = n ? `Zapisuji popisky do fotek (${n})…` : ""; } catch { }
+  try { const r = await api("GET", "/api/state"); S.state = r.state; renderApp(r.app); const n = r.state.pendingWrites; const el = $("pending"); el.hidden = !n; el.textContent = n ? `Zapisuji popisky do fotek (${n})…` : ""; } catch { }
 }
 
 /* ---------- navigace ---------- */
