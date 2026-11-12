@@ -106,6 +106,25 @@ public class AiTests
         Assert.Equal(title, t);
     }
 
+    [Theory]
+    [InlineData("Tak tohle je Masai Mara.", "Tak tohle je Masai Mara.", true)]
+    [InlineData("tak tohle je masai mara", "Úvod. Tak tohle je Masai Mara.", true)]
+    [InlineData("Večer jsme se vraceli.", "Tak tohle je Masai Mara.", false)]
+    [InlineData("", "cokoli", true)]
+    [InlineData("Ano.", "Ano.", false)]
+    public void Opakovany_prepis_se_pozna(string transcript, string previous, bool repeat) =>
+        Assert.Equal(repeat, AiService.IsRepeat(transcript, previous));
+
+    [Fact]
+    public async Task Predchozi_text_se_modelu_neposila()
+    {
+        var (ai, h, _, _) = Make((req, _) => req.RequestUri!.AbsolutePath.EndsWith("/models")
+            ? (HttpStatusCode.OK, Models) : (HttpStatusCode.OK, Answer("Tak tohle je Masai Mara.")));
+        var text = await ai.TranscribeAsync("UklGRg==", "Úvod. Tak tohle je Masai Mara.");
+        Assert.Equal("", text); // zopakovaná věta se zahodí
+        Assert.DoesNotContain("Úvod", h.Calls.Last().Body);
+    }
+
     [Fact]
     public void Klic_se_nikdy_neukaze_cely()
     {

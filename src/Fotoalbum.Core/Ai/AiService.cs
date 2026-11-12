@@ -141,10 +141,10 @@ public sealed class AiService
             Přepiš přesně tuto českou nahrávku do textu. Píše se popisek k fotografii, mluví starší pán.
             Zapiš doslova, co zazní, včetně opakování a oprav (nic neupravuj, nevynechávej, nepřidávej).
             Používej správnou českou diakritiku a interpunkci. Vrať jen přepsaný text, bez uvozovek a komentářů.
-            Pokud v nahrávce není žádná řeč, vrať prázdný text.
+            Pokud v nahrávce není žádná řeč (ticho, šum, ruchy), vrať úplně prázdnou odpověď – nic si nedomýšlej.
             """;
         if (!string.IsNullOrEmpty(glossary)) instruction += "\nSprávný pravopis jmen a míst: " + glossary;
-        if (!string.IsNullOrWhiteSpace(previousText)) instruction += "\nPředchozí část diktátu (jen pro kontext, nepřepisuj ji): " + Tail(previousText, 400);
+        // Předchozí text se modelu záměrně neposílá – u úseku s tichem by ho jinak zopakoval.
 
         var content = new JsonArray
         {
@@ -153,7 +153,27 @@ public sealed class AiService
         };
         var model = await AudioModelAsync(ct);
         var (text, _) = await ChatAsync(model, null, content, 0, ct);
-        return CleanTranscript(text);
+        var clean = CleanTranscript(text);
+        return IsRepeat(clean, previousText) ? "" : clean;
+    }
+
+    /// <summary>Přepis jen zopakoval to, co už v textu je (typicky u ticha nebo šumu) → zahodit.</summary>
+    public static bool IsRepeat(string transcript, string previousText)
+    {
+        var t = Normalize(transcript);
+        if (t.Length == 0) return true;
+        var prev = Normalize(previousText);
+        return prev.Length > 0 && t.Length >= 8 && prev.EndsWith(t, StringComparison.Ordinal)
+            || prev.Length > 0 && t.Length >= 25 && prev.Contains(t, StringComparison.Ordinal);
+    }
+
+    private static string Normalize(string s)
+    {
+        var sb = new StringBuilder();
+        foreach (var ch in s.ToLowerInvariant())
+            if (char.IsLetterOrDigit(ch)) sb.Append(ch);
+            else if (sb.Length > 0 && sb[^1] != ' ') sb.Append(' ');
+        return sb.ToString().Trim();
     }
 
     public static string CleanTranscript(string s)

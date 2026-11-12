@@ -562,7 +562,7 @@ function openMenu() {
 function closeMenu() { if (!S.menu) return; S.menu = false; $("menu").hidden = true; $("more").setAttribute("aria-expanded", "false"); }
 
 /* ---------- diktování a korektura (specifikace 3) ---------- */
-const R = { on: false, stream: null, ctx: null, proc: null, buf: [], len: 0, voiced: false, lastVoice: 0, started: 0, timer: null, queue: Promise.resolve(), pending: 0, mode: "append", target: null };
+const R = { on: false, stream: null, ctx: null, proc: null, buf: [], len: 0, voicedSec: 0, lastVoice: 0, started: 0, timer: null, queue: Promise.resolve(), pending: 0, mode: "append", target: null, levels: [] };
 function fmtTime(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
 
 async function loadAi() { try { S.ai = await api("GET", "/api/ai"); } catch { S.ai = null; } renderButtons(); }
@@ -573,7 +573,7 @@ async function recStart() {
   catch { toast("Mikrofon není dostupný. Je připojený a povolený?", null, 6000); return; }
   R.mode = p.source === "ai" && !isDirty() && S.saved.trim() ? "fix" : "append";
   if (R.mode === "fix") S.fixText = "";
-  R.target = p; R.on = true; R.buf = []; R.len = 0; R.voiced = false; R.started = R.lastVoice = performance.now();
+  R.target = p; R.on = true; R.buf = []; R.len = 0; R.voicedSec = 0; R.levels = []; R.started = R.lastVoice = performance.now();
   R.ctx = new AudioContext();
   const src = R.ctx.createMediaStreamSource(R.stream);
   R.proc = R.ctx.createScriptProcessor(4096, 1, 1);
@@ -590,8 +590,11 @@ function onAudio(d) {
   if (!R.on) return;
   const copy = new Float32Array(d);
   let sum = 0; for (let i = 0; i < copy.length; i++) sum += copy[i] * copy[i];
-  const now = performance.now();
-  if (Math.sqrt(sum / copy.length) > 0.012) { R.lastVoice = now; R.voiced = true; }
+  const now = performance.now(), rms = Math.sqrt(sum / copy.length);
+  // hladina šumu místnosti = spodní pětina hlasitosti za posledních ~5 s; řeč musí být výrazně nad ní
+  R.levels.push(rms); if (R.levels.length > 60) R.levels.shift();
+  const floor = [...R.levels].sort((a, b) => a - b)[Math.floor(R.levels.length * 0.2)] || 0;
+  if (rms > Math.max(0.015, floor * 3)) { R.lastVoice = now; R.voicedSec += copy.length / R.ctx.sampleRate; }
   R.buf.push(copy); R.len += copy.length;
   const sec = R.len / R.ctx.sampleRate;
   // úsek se odešle v pauze řeči (nebo nejpozději po 12 s), aby se nedělila slova
@@ -599,19 +602,25 @@ function onAudio(d) {
 }
 function flushSegment() {
   if (!R.len) return;
-  const chunks = R.buf, len = R.len, voiced = R.voiced, rate = R.ctx.sampleRate, target = R.target, mode = R.mode;
-  R.buf = []; R.len = 0; R.voiced = false;
-  if (!voiced) return; // ticho se neposílá
+  const chunks = R.buf, len = R.len, voiced = R.voicedSec >= 0.5, rate = R.ctx.sampleRate, target = R.target, mode = R.mode;
+  R.buf = []; R.len = 0; R.voicedSec = 0;
+  if (!voiced) return; // ticho a šum se neposílají
   const wav = encodeWav(chunks, len, rate);
   R.pending++; renderCaption(false); renderButtons();
   R.queue = R.queue.then(async () => {
     try {
       const prev = mode === "fix" ? (S.fixText || "") : $("ta").value;
       const r = await api("POST", "/api/ai/transcribe", { audio: wav, previous: prev });
-      if (r.text && S.cur === target) appendDictation(r.text, mode);
+      if (r.text && S.cur === target && !isRepeat(r.text, mode === "fix" ? (S.fixText || "") : $("ta").value)) appendDictation(r.text, mode);
     } catch (e) { fail(e); }
     finally { R.pending--; renderCaption(false); renderButtons(); }
   });
+}
+/** Pojistka: přepis, který jen opakuje konec už napsaného textu, se nepřidá. */
+function isRepeat(text, prev) {
+  const norm = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const t = norm(text), p = norm(prev);
+  return !t || (p.length > 0 && t.length >= 8 && p.endsWith(t));
 }
 function appendDictation(text, mode) {
   if (mode === "fix") S.fixText = (S.fixText ? S.fixText + " " : "") + text;
