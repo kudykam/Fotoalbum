@@ -189,6 +189,7 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Písmo je menší než ve verzi 0.3 (test na 15" notebooku); **velikost písma** jde nastavit v Nastavení (⚙): 80–140 %, po 10 %, ukládá se v počítači (zvětší i tlačítka).
 - Náhled: `docs/maketa/pracovna-v2.html`.
 - **Připraveno na příště (zadáno 12. 11. 2026, zatím neimplementováno):** levý panel (složky) i pravý panel (miniatury) půjde **rozšířit / zúžit myší** tažením za okraj (široký, dobře viditelný úchyt). Miniatury vpravo se se šířkou panelu **zvětší**. Zvolené šířky se pamatují v počítači; dvojklik na úchyt vrátí výchozí šířku.
+- **Připraveno na příště (12. 11. 2026):** tlačítka **Zpět**, **Znovu** a **Více** se přesunou z řady pod popiskem **úplně nahoru doleva do záhlaví** (hned za název aplikace); **verze programu** (a upozornění na aktualizaci) se přesune **v záhlaví doprava** (vedle ⚙ a „Zavřít program“). V řadě pod popiskem zůstane Předchozí, Další a Bez popisku – další fotka.
 
 ### 2.8 Automatické aktualizace (schváleno 12. 11. 2026)
 - Zdroj: **GitHub Releases** repozitáře (veřejné, bez přihlášení). Nástroj **Velopack** (MIT): instalace do profilu uživatele bez práv správce, rozdílové aktualizace, kontrola celistvosti.
