@@ -20,6 +20,12 @@ public sealed class AppSettings
     /// <summary>Kanál aktualizací: „stable“ (výchozí, schválené verze) nebo „test“ (jen pro správce).</summary>
     public string UpdateChannel { get; set; } = "stable";
 
+    /// <summary>
+    /// Kanál vybral správce v nastavení. Dokud ne, platí kanál instalátoru
+    /// (testovací instalátor → testovací aktualizace, stabilní → stabilní).
+    /// </summary>
+    public bool UpdateChannelChosen { get; set; }
+
     /// <summary>Model OpenRouteru pro korekturu (prázdné = výchozí Claude Haiku 5.5).</summary>
     public string? AiTextModel { get; set; }
 

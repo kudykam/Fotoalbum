@@ -93,7 +93,7 @@ public sealed class FotoalbumService : IDisposable
     public void SetUpdateChannel(string channel)
     {
         if (channel is not ("stable" or "test")) throw new ArgumentException("Neznámý kanál aktualizací.");
-        _settings.Update(s => s.UpdateChannel = channel);
+        _settings.Update(s => { s.UpdateChannel = channel; s.UpdateChannelChosen = true; });
     }
 
     public void Configure(string? photoRoot, string? exifToolPath, bool? autoImport = null)

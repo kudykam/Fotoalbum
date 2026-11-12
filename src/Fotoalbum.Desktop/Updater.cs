@@ -35,7 +35,23 @@ internal sealed class Updater : IAppUpdates, IDisposable
         _timer = new System.Threading.Timer(_ => _ = CheckAsync(false), null, TimeSpan.FromMinutes(1), Interval);
     }
 
-    private string Channel => _service.Settings.UpdateChannel == "test" ? "test" : "stable";
+    private string? _packaged;
+
+    /// <summary>Kanál: výslovná volba v nastavení, jinak kanál, ze kterého byl program nainstalován.</summary>
+    private string Channel => _service.Settings.UpdateChannelChosen
+        ? (_service.Settings.UpdateChannel == "test" ? "test" : "stable")
+        : _packaged ??= PackagedChannel();
+
+    private static string PackagedChannel()
+    {
+        try
+        {
+            // kanál uložený instalátorem (VelopackApp.Run nastaví výchozí lokátor při startu)
+            var channel = Velopack.Locators.VelopackLocator.IsCurrentSet ? Velopack.Locators.VelopackLocator.Current.Channel : null;
+            return channel == "test" ? "test" : "stable";
+        }
+        catch (Exception e) { Log.Error(e); return "stable"; }
+    }
 
     private UpdateManager Manager(bool allowDowngrade)
     {
