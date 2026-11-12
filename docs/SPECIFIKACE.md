@@ -66,6 +66,17 @@ TV: **Samsung UE46F5400** (rok 2013, platforma před Tizenem). **Ověřeno: TV m
 - Obě cesty vyžadují, aby tablet / PC a TV byly ve **stejné domácí Wi-Fi**. Nic se neposílá do cloudu.
 - **Ověřit na skutečné TV:** v menu Zdroj → „Screen Mirroring“ a v nastavení sítě „AllShare / Nastavení AllShare“ – podpora DLNA přehrávání. Jakmile bude k dispozici, otestovat prototypem.
 
+### 2.3.2 Fotoalbum jako DLNA server pro televizi (plánováno, zatím neimplementovat)
+Fotoalbum na PC se v domácí síti ohlásí jako **DLNA/UPnP mediální server**; TV (Samsung UE46F5400, AllShare) ho najde mezi zdroji a děda listuje **jen dálkovým ovladačem TV** – bez tabletu.
+
+- **Popisky:** prohlížeč fotek v TV popisky z EXIF nezobrazuje (nanejvýš název položky po stisku Info). Proto server posílá **hotové snímky 1920×1080 s vykresleným popiskem** – stejný vzhled jako čtecí varianta „fotka přes celou plochu“ (poloprůhledný obdélník dole, velké písmo, datum). Originály se nemění; snímky se tvoří na požádání a ukládají do mezipaměti (při změně popisku se obnoví).
+- **Struktura na TV:** „Fotoalbum (PC dědy)“ → alba podle složek (např. „2026 léto“, „Afrika 1998 · Keňa“) → fotky podle data pořízení; volitelně složka „Naposledy přidané“. Výběr, zda ukazovat všechny fotky, nebo jen s popiskem – **k rozhodnutí**.
+- **Videa** z karty (MP4) zpřístupnit beze změny; podporu MTS ověřit na TV.
+- **Technika:** SSDP (UDP 1900) + popis zařízení + ContentDirectory/ConnectionManager (SOAP), HTTP s hlavičkami DLNA (profil JPEG_LRG); běží ve stejném programu jako Fotoalbum (ikona u hodin). Fotky ze stejného vykreslování jako „Pustit na televizi“ (2.3.1) – oba způsoby mohou existovat vedle sebe.
+- **Bezpečnost:** jen domácí síť, jen čtení, žádné změny ani mazání; při prvním spuštění jednorázové povolení ve Firewallu Windows (potvrdí správce).
+- **Podmínka:** PC musí běžet (Fotoalbum je u hodin).
+- Ověřit až na skutečné TV (zobrazení, rychlost listování, prezentace).
+
 ### 2.4 Nastavení (jen pro správce)
 - Kořenová složka s fotkami, AI služby a klíče, styl popisků, slovníček jmen a míst.
 - Pro dědu skryté (heslo / klávesová zkratka).
@@ -224,7 +235,7 @@ Jedna dovolená může mít **500 a více fotek** a **ne každá potřebuje popi
 2. Diktování, ✨ Vylepšit, hlasové opravy, historie verzí v rozhraní, slovníček jmen a míst.
 3. Knihovna alb (2.1), úvodní texty, vyhledávání.
 4. Staré vepsané popisky: přečtení a odstranění (kap. 7).
-5. Čtecí režim – obě varianty (2.3) a „Pustit na televizi“ (2.3.1).
+5. Čtecí režim – obě varianty (2.3), „Pustit na televizi“ (2.3.1) a DLNA server pro TV (2.3.2).
 6. Tablet jako druhá obrazovka PC (kap. 9): poslech v domácí síti, párování QR kódem, probuzení PC.
 
 ## 11. Otevřené otázky
