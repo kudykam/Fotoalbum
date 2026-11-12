@@ -625,15 +625,62 @@ function flushSegment() {
     finally { R.pending--; renderCaption(false); renderButtons(); }
   });
 }
-/** Velké okno s právě diktovaným textem přes spodní část fotky. */
+/* ---------- okno diktování ---------- */
+/** Otevře okno diktování a rovnou spustí nahrávání. */
+async function openDictation() {
+  const p = S.cur; if (!p || S.busy || p.status === "del") return;
+  closeMenu();
+  S.dictOpen = true; $("dictDlg").hidden = false;
+  $("ddImg").src = "/api/image?path=" + q(p.path);
+  $("ddImg").style.transform = p.rotation ? `rotate(${p.rotation}deg)` : "";
+  $("ddMeta").innerHTML = `<span class="chip">${esc(p.title || p.name)}</span>${p.date ? `<span class="chip">${fmtDate(p.date)}</span>` : ""}`;
+  $("dta").value = $("ta").value;
+  renderDict();
+  await recStart();
+}
+async function closeDictation() {
+  if (R.on) await recStop();
+  S.dictOpen = false; $("dictDlg").hidden = true;
+  renderAll(false);
+}
+/** Schválit text (případně použít nadiktovaný pokyn) a přejít na další fotku. */
+async function approveAndNext() {
+  if (R.on) await recStop();
+  if (R.pending) await R.queue;
+  if (S.fixText) await improveCaption();
+  S.approving = true;
+  try {
+    const n = neighbour(1);
+    if (n) await go(n);
+    else { await run(commit); toast("Toto byla poslední fotka ve složce."); }
+  } finally { S.approving = false; }
+  S.dictOpen = false; $("dictDlg").hidden = true;
+  renderAll(false);
+}
+/** Překreslí okno diktování (stav, text posunutý na konec, tlačítka). */
 function renderDict() {
-  const box = $("dictbox"), show = R.on || R.pending > 0;
-  box.hidden = !show; if (!show) return;
-  $("dlabel").textContent = R.on
-    ? `● ${R.mode === "fix" ? "Diktujete úpravu" : "Diktujete"} ${fmtTime(performance.now() - R.started)} – stiskněte Zastavit, až budete hotovi`
-    : "Přepisuji poslední větu…";
-  const el = $("dtext"), text = R.mode === "fix" ? (S.fixText || "") : $("ta").value;
-  if (el.textContent !== text) { el.textContent = text; el.scrollTop = el.scrollHeight; }
+  if (!S.dictOpen) return;
+  const st = $("ddStatus");
+  st.className = "dd-status " + (R.on ? "rec" : S.aiWorking ? "" : "ok");
+  st.textContent = R.on ? `● ${R.mode === "fix" ? "Diktujete úpravu" : "Diktujete"} ${fmtTime(performance.now() - R.started)} – mluvte, text se objeví po větách`
+    : R.pending ? "Přepisuji poslední větu…"
+    : S.aiWorking ? "AI upravuje text…"
+    : S.fixText ? "Pokyn je připravený – stiskněte Použít úpravu."
+    : S.cur && S.cur.source === "ai" && !isDirty() ? "Hotovo. Text můžete schválit, upravit hlasem, nebo opravit ručně."
+    : "Hotovo. Můžete dát Korekturu, pokračovat v diktování, nebo text schválit.";
+  const dta = $("dta"), text = $("ta").value;
+  if (document.activeElement !== dta && dta.value !== text) { dta.value = text; dta.scrollTop = dta.scrollHeight; }
+  $("ddBusy").hidden = !S.aiWorking;
+  $("ddFix").hidden = !S.fixText; $("ddFixT").textContent = S.fixText || "";
+  const p = S.cur, fixMode = p && p.source === "ai" && !isDirty() && S.saved.trim();
+  $("ddMic").classList.toggle("on", R.on);
+  $("ddMicT").textContent = R.on ? "Zastavit " + fmtTime(performance.now() - R.started) : fixMode ? "Diktovat úpravu" : "Pokračovat v diktování";
+  $("ddMic").disabled = S.aiWorking;
+  const redoMode = p && p.source === "ai" && !isDirty() && !S.fixText;
+  $("ddAiT").textContent = S.aiWorking ? "Upravuji…" : S.fixText ? "Použít úpravu" : redoMode ? "Upravit znovu" : "Korektura";
+  $("ddAi").disabled = S.aiWorking || !($("ta").value.trim() || S.fixText || R.on || R.pending > 0);
+  $("ddOk").disabled = S.aiWorking || R.pending > 0;
+  $("ddOkT").textContent = neighbour(1) ? "Schválit a další fotka" : "Schválit (poslední fotka)";
 }
 /** Pojistka: přepis, který jen opakuje konec už napsaného textu, se nepřidá. */
 function isRepeat(text, prev) {
@@ -705,6 +752,7 @@ function guardLeave() {
   return new Promise(async resolve => {
     if (R.on) await recStop();
     if (R.pending) await R.queue;
+    if (S.approving) return resolve(true); // „Schválit a další“ = vědomé rozhodnutí, neptat se
     const p = S.cur;
     if (!p || !S.ai || !S.ai.hasKey) return resolve(true);
     const text = $("ta").value.trim();
@@ -816,7 +864,16 @@ window.fotoalbum = {
 $("prev").onclick = $("pL").onclick = () => step(-1);
 $("next").onclick = $("pR").onclick = () => step(1);
 $("skip").onclick = skipPhoto;
-$("mic").onclick = () => R.on ? recStop() : recStart();
+$("mic").onclick = () => R.on ? recStop() : openDictation();
+$("ddMic").onclick = () => R.on ? recStop() : recStart();
+$("ddAi").onclick = async () => { if (R.on) await recStop(); if (R.pending) await R.queue; if ($("ta").value.trim() || S.fixText) improveCaption(); };
+$("ddOk").onclick = approveAndNext;
+$("ddClose").onclick = closeDictation;
+$("dta").addEventListener("input", () => {
+  if (!S.cur) return;
+  $("ta").value = $("dta").value; draftSave(S.cur.path, $("ta").value);
+  renderCaption(false); renderButtons();
+});
 $("ai").onclick = improveCaption;
 $("rawBtn").onclick = () => { S.showRaw = !S.showRaw; renderCaption(false); };
 $("useRaw").onclick = () => { const p = S.cur; if (!p || !p.raw) return; $("ta").value = p.raw; S.showRaw = false; draftSave(p.path, p.raw); renderCaption(false); renderButtons(); toast("Původní text je v poli. Můžete ho upravit a znovu dát Korekturu."); };
@@ -840,6 +897,7 @@ $("ta").addEventListener("input", () => {
 });
 document.addEventListener("keydown", e => {
   if ($("modalHost").innerHTML) return;
+  if (e.key === "Escape" && S.dictOpen) { closeDictation(); return; }
   if (e.key === "Escape") {
     closeMenu();
     // Esc zavře nastavení a vrátí do Pracovny
@@ -849,7 +907,7 @@ document.addEventListener("keydown", e => {
   // Ctrl+Alt+S – na české klávesnici je Ctrl+Alt = AltGr a e.key je „đ“, proto podle fyzické klávesy
   if (e.ctrlKey && e.altKey && e.code === "KeyS") { e.preventDefault(); openSettings(); return; }
   if ($("work").hidden) return;
-  if (e.key === "F2") { e.preventDefault(); if (S.ai && S.ai.hasKey) (R.on ? recStop() : recStart()); return; }
+  if (e.key === "F2") { e.preventDefault(); if (S.ai && S.ai.hasKey) (R.on ? recStop() : S.dictOpen ? recStart() : openDictation()); return; }
   if (e.key === "PageUp") { e.preventDefault(); step(-1); return; }
   if (e.key === "PageDown") { e.preventDefault(); step(1); return; }
   if (/TEXTAREA|INPUT|SELECT/.test(e.target.tagName)) return;

@@ -51,7 +51,6 @@
             <img id="photo" alt="">
             <div class="meta" id="meta"></div>
             <div class="state" id="state"></div>
-            <div class="dictbox" id="dictbox" hidden><div class="dlabel" id="dlabel"></div><div class="dtext" id="dtext"></div></div>
             <div class="loading" id="loading" hidden><span class="spin"></span>Načítám složku…</div>
             <button class="nav l" id="pL" aria-label="Předchozí fotka"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 5l-7 7 7 7"/></svg></button>
             <button class="nav r" id="pR" aria-label="Další fotka"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg></button>
@@ -85,6 +84,24 @@
           </div>
         </div>
       </main>
+    </div>
+  </div>
+</div>
+<!-- okno diktování: otevře se tlačítkem Diktovat a rovnou nahrává -->
+<div class="dictdlg" id="dictDlg" hidden role="dialog" aria-modal="true" aria-label="Diktování popisku">
+  <div class="dd-in">
+    <div class="dd-photo"><img id="ddImg" alt=""><div class="dd-meta" id="ddMeta"></div></div>
+    <div class="dd-side">
+      <div class="dd-status" id="ddStatus"></div>
+      <div class="shimmer" id="ddBusy" hidden></div>
+      <textarea id="dta" placeholder="Mluvte, text se objeví po větách…"></textarea>
+      <div class="fix" id="ddFix" hidden><span class="lbl">Pokyn k úpravě</span><span class="t" id="ddFixT"></span></div>
+      <div class="dd-btns">
+        <button class="b mic" id="ddMic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg><span id="ddMicT">Zastavit</span></button>
+        <button class="b ai" id="ddAi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg><span id="ddAiT">Korektura</span></button>
+      </div>
+      <button class="b solid dd-ok" id="ddOk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg><span id="ddOkT">Schválit a další fotka</span></button>
+      <button class="b sm" id="ddClose">Zavřít okno (text zůstane)</button>
     </div>
   </div>
 </div>

@@ -160,6 +160,13 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Odchod z fotky s napsaným/nadiktovaným textem bez korektury → dotaz „Odejít bez korektury?“ – **vždy** (i u běžných fotek, bez volby „neptat se“).
 - Fotka s ponechaným ručním textem dostane **vlastní značku „jen ruční text“** (miniatura i pruh postupu); je to povolený stav.
 
+**Okno diktování (úprava po testu 12. 11. 2026):**
+- Panel popisku vedle fotky zůstává na rychlé prohlédnutí uloženého textu a ruční psaní.
+- Tlačítko **Diktovat** (i F2) otevře **velké okno**: vlevo fotka, vpravo velký text, **nahrávání se spustí hned**; text přibývá po větách a okno se posouvá na konec.
+- V okně: **Zastavit / Pokračovat v diktování** (po korektuře „Diktovat úpravu“), **Korektura** (zastaví nahrávání a rovnou upraví text; pak „Upravit znovu“ / „Použít úpravu“), velké **„Schválit a další fotka“**, **„Zavřít okno (text zůstane)“**; Esc = zavřít.
+- „Schválit a další fotka“ uloží text tak, jak je (i bez korektury – je to vědomá volba, proto se **neptá** „Odejít bez korektury?“; ruční text dostane značku ✍), zavře okno a ukáže další fotku. Na poslední fotce jen uloží.
+- Text lze v okně i ručně opravit; je stejný jako v panelu.
+
 **Servisní složky ve složce s fotkami** (ve stromu se nezobrazují):
 - databáze a zálohy: **„Fotokronikář – databáze (nemazat)“** (dříve `_fotoalbum`),
 - originály před odstraněním vepsaného textu (etapa 4): **„Fotokronikář – originály (nemazat)“** (dříve `_originaly`).
@@ -306,7 +313,7 @@ Mají přednost před starším textem této specifikace, kde se liší.
 
 ### Etapy
 1. **MVP – hotovo** (čeká na vyzkoušení ve Windows): strom složek, miniatury, velká fotka, ruční popisek, automatické ukládání do metadat, označení ke smazání, stavy „bez popisku“ a pokračování (2.5), záloha databáze, lokální server + webové rozhraní.
-2. **Diktování a AI – implementováno, čeká na test se skutečným klíčem:** 🎤 Diktovat (přepis po větách), ✨ Korektura, hlasové úpravy („Diktovat úpravu“ → „Použít úpravu“), nadpis od AI, značka „✍ Jen ruční text“, dotaz při odchodu bez korektury, slovníček, délka popisku, útrata; vše vratné tlačítkem Zpět. Klávesa F2 = diktovat.
+2. **Diktování a AI – implementováno, čeká na test se skutečným klíčem:** 🎤 Diktovat (přepis po větách), ✨ Korektura, hlasové úpravy („Diktovat úpravu“ → „Použít úpravu“), nadpis od AI, značka „✍ Jen ruční text“, dotaz při odchodu bez korektury, slovníček, délka popisku, útrata; vše vratné tlačítkem Zpět. Klávesa F2 = diktovat. Diktuje se ve velkém okně se „Schválit a další fotka“.
 3. Knihovna alb (2.1), úvodní texty, vyhledávání.
 4. Staré vepsané popisky: přečtení a odstranění (kap. 7).
 5. Čtecí režim – obě varianty (2.3), „Pustit na televizi“ (2.3.1) a DLNA server pro TV (2.3.2).
