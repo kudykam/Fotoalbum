@@ -13,7 +13,7 @@ Hlavní uživatel je senior → **velká písmena, velká tlačítka s ikonou i 
 ### 2.1 Knihovna (hlavní stránka)
 - Dlaždice alb: titulní fotka, název, období, postup („86 % popsáno“).
 - Album = složka ve stromu fotek.
-- Řazení podle **data** nebo **názvu**; vyhledávání v popiscích.
+- Řazení podle **data** nebo **názvu**; vyhledávání v popiscích – i **hlasem** (viz 2.11).
 - Album může mít **úvodní text** (diktuje se a vylepšuje stejně jako popisky).
 - Nahoře velké tlačítko **„Pokračovat: Afrika 1998 › Keňa, fotka 214 z 500“** – jedním stiskem otevře Pracovnu přesně tam, kde se minule skončilo (i když to bylo na jiném zařízení). Viz 2.5.
 
@@ -191,6 +191,18 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - **Připraveno na příště (zadáno 12. 11. 2026, zatím neimplementováno):** levý panel (složky) i pravý panel (miniatury) půjde **rozšířit / zúžit myší** tažením za okraj (široký, dobře viditelný úchyt). Miniatury vpravo se se šířkou panelu **zvětší**. Zvolené šířky se pamatují v počítači; dvojklik na úchyt vrátí výchozí šířku.
 - **Připraveno na příště (12. 11. 2026):** tlačítka **Zpět**, **Znovu** a **Více** se přesunou z řady pod popiskem **úplně nahoru doleva do záhlaví** (hned za název aplikace); **verze programu** (a upozornění na aktualizaci) se přesune **v záhlaví doprava** (vedle ⚙ a „Zavřít program“). V řadě pod popiskem zůstane Předchozí, Další a Bez popisku – další fotka.
 
+### 2.11 Hlavní obrazovka čtení a hlasové vyhledávání (zadáno 13. 11. 2026, plánováno)
+**Hlavní obrazovka čtecího režimu:**
+- Výchozí zobrazení: **jen dovolené** (složky se štítkem „Dovolená“) jako **velké dlaždice s titulní fotkou**, názvem a obdobím. Běžné fotky jde zobrazit přepínačem „Ukázat i běžné fotky“.
+- **Vlevo zůstává stromová struktura složek** (stejná jako v Pracovně); klepnutí na složku ukáže její dlaždice / fotky.
+- **V záhlaví vyhledávací pole s mikrofonem** 🎤 – hledat jde psaním i diktováním. Podle výsledku se dlaždice a fotky **hned vyfiltrují**; křížkem ✕ se filtr zruší a vrátí se výchozí zobrazení.
+
+**Vyhledávání (psaním i hlasem):**
+- Hledá se v **názvech složek/alb, nadpisech, popiscích a úvodních textech alb**, i v datech (rok, roční období).
+- Diktát se přepíše stejně jako u popisků; přirozený dotaz („fotky ze safari v Keni, kde zapadá slunce“, „Turecko loni v létě“) AI převede na hledaná slova, místa a období. Hledá se i bez diakritiky a v různých tvarech slov (Keňa / Keni).
+- Výsledky: nahoře **nalezená alba** (dlaždice), pod nimi **nalezené fotky** (miniatury s nadpisem); klepnutím se otevře album nebo fotka ve čtení.
+- Vyhledávání funguje i v Knihovně (2.1); bez internetu jen psaním (bez převodu dotazu přes AI).
+
 ### 2.8 Automatické aktualizace (schváleno 12. 11. 2026)
 - Zdroj: **GitHub Releases** repozitáře (veřejné, bez přihlášení). Nástroj **Velopack** (MIT): instalace do profilu uživatele bez práv správce, rozdílové aktualizace, kontrola celistvosti.
 - **Dva kanály:**
@@ -325,9 +337,9 @@ Mají přednost před starším textem této specifikace, kde se liší.
 ### Etapy
 1. **MVP – hotovo** (čeká na vyzkoušení ve Windows): strom složek, miniatury, velká fotka, ruční popisek, automatické ukládání do metadat, označení ke smazání, stavy „bez popisku“ a pokračování (2.5), záloha databáze, lokální server + webové rozhraní.
 2. **Diktování a AI – implementováno, čeká na test se skutečným klíčem:** 🎤 Diktovat (přepis po větách), ✨ Korektura, hlasové úpravy („Diktovat úpravu“ → „Použít úpravu“), nadpis od AI, značka „✍ Jen ruční text“, dotaz při odchodu bez korektury, slovníček, délka popisku, útrata; vše vratné tlačítkem Zpět. Klávesa F2 = diktovat. Diktuje se do pole pod fotkou, „Schválit a další fotka“ (2.10).
-3. Knihovna alb (2.1), úvodní texty, vyhledávání.
+3. Knihovna alb (2.1), úvodní texty, vyhledávání psaním i hlasem (2.11).
 4. Staré vepsané popisky: přečtení a odstranění (kap. 7).
-5. Čtecí režim – obě varianty (2.3), „Pustit na televizi“ (2.3.1) a DLNA server pro TV (2.3.2).
+5. Čtecí režim – hlavní obrazovka s dovolenými a vyhledáváním (2.11), obě varianty čtení (2.3), „Pustit na televizi“ (2.3.1) a DLNA server pro TV (2.3.2).
 6. Tablet jako druhá obrazovka PC (kap. 9): poslech v domácí síti, párování QR kódem, probuzení PC.
 
 ## 11. Otevřené otázky
