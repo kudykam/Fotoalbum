@@ -97,9 +97,10 @@ body.resizing{user-select:none;cursor:col-resize}
 .tree-expand{display:grid;place-items:center;flex:0 0 24px;min-height:34px;padding:0;border:0;border-radius:6px;background:none;cursor:pointer}
 .tree-expand:hover{background:var(--accent-soft)}
 .tree-expand svg{width:16px;height:16px}
-.crumbs{display:flex;align-items:center;gap:4px;padding:4px 8px;overflow-x:auto;flex-shrink:0;white-space:nowrap}
-.crumbs button{border:0;background:none;color:var(--accent);text-decoration:underline;cursor:pointer;padding:4px 2px}
-.nosidebar .crumbs{display:none}
+.crumbs{grid-area:crumbs;display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;color:var(--muted)}
+.crumbs button,.crumbs [aria-current]{min-width:0;max-width:100%;overflow-wrap:anywhere;padding:2px 3px}
+.crumbs button{border:0;background:none;color:var(--accent);text-decoration:underline;cursor:pointer}
+.crumbs [aria-current]{font-weight:700;color:var(--ink)}
 .node{width:100%;display:flex;align-items:center;gap:8px;border:0;background:none;text-align:left;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:15px}
 .node:hover{background:var(--accent-soft)}
 .node[aria-current="true"]{background:var(--accent);color:var(--accent-ink)}
@@ -124,7 +125,9 @@ body.resizing{user-select:none;cursor:col-resize}
 .nosidebar .side-h{padding:14px 12px;justify-content:center}
 
 /* pracovna */
-.main{display:grid;grid-template-rows:minmax(0,1fr) auto;min-width:0;min-height:0;padding:10px 12px 12px;gap:10px}
+.main{display:grid;grid-template:"crumbs" auto "stage" minmax(0,1fr) "caption" auto / minmax(0,1fr);min-width:0;min-height:0;padding:6px 12px 12px;gap:5px}
+.main>.stage{grid-area:stage}
+.main>.cap{grid-area:caption;margin-top:5px}
 /* svislý pás miniatur vpravo */
 .rail{border-left:1px solid var(--line);background:var(--side);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;min-height:0;min-width:0}
 .rail-folder{font-size:15px;text-align:center;margin:8px 8px 0;overflow-wrap:anywhere}
@@ -160,7 +163,6 @@ body.resizing{user-select:none;cursor:col-resize}
 .stage{position:relative;min-height:200px;background:var(--stage);border-radius:10px;display:grid;place-items:center;overflow:hidden}
 .stage img{display:block;transition:transform .3s ease;max-width:none}
 .meta{position:absolute;left:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap;max-width:calc(100% - 24px)}
-.chip.folder-name{max-width:100%;overflow-wrap:anywhere}
 .chip{background:rgba(10,14,12,.72);color:#f2f5f3;border-radius:99px;padding:4px 11px;font-size:14px;font-variant-numeric:tabular-nums}
 .chip.title{font-weight:700;font-size:15px;max-width:60ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip.skipc{background:rgba(90,100,95,.95)}

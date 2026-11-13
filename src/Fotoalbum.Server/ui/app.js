@@ -278,19 +278,26 @@ function renderTree() {
   nodes.forEach(n => mk(n, el));
   if (!el.children.length) el.innerHTML = '<li class="treeempty">Žádná složka se zvoleným filtrem.</li>';
   const parts = selected ? selected.split("/") : [];
-  crumbs.hidden = parts.length < 2;
+  crumbs.hidden = browse || selected == null;
   if (!crumbs.hidden) {
     const names = [S.tree.name || "Všechny fotky", ...parts];
     names.forEach((name, i) => {
-      if (i) crumbs.append(" › ");
-      const button = document.createElement("button");
-      button.textContent = name;
-      button.title = name;
-      button.onclick = () => choose(parts.slice(0, i).join("/"));
-      if (i === names.length - 1) button.setAttribute("aria-current", "location");
-      crumbs.append(button);
+      if (i) {
+        const separator = document.createElement("span");
+        separator.textContent = "›";
+        separator.setAttribute("aria-hidden", "true");
+        crumbs.append(separator);
+      }
+      const current = i === names.length - 1;
+      const item = document.createElement(current ? "span" : "button");
+      item.textContent = name;
+      if (current) item.setAttribute("aria-current", "location");
+      else {
+        item.type = "button";
+        item.onclick = () => choose(parts.slice(0, i).join("/"));
+      }
+      crumbs.append(item);
     });
-    crumbs.scrollLeft = crumbs.scrollWidth;
   }
   if (!browse) renderKindRow();
   el.scrollTop = scrollTop;
@@ -618,11 +625,9 @@ function renderStage(newPhoto) {
   img.hidden = false;
   if (newPhoto) { img.style.visibility = "hidden"; img.onload = () => { fitImage(); img.style.visibility = ""; }; img.src = "/api/image?path=" + q(p.path); }
   else fitImage();
-  const n = findNode(S.tree, S.folder);
   // záhlaví: nadpis z popisku (jakmile existuje), jinak název souboru
   $("meta").innerHTML = (p.title ? `<span class="chip title" title="${esc(p.name)}">${esc(p.title)}</span>` : `<span class="chip">${esc(p.name)}</span>`)
-    + (p.date ? `<span class="chip">${fmtDate(p.date)}</span>` : "")
-    + `<span class="chip folder-name">${esc(n ? (n.name || "Všechny fotky") : "")}</span>`;
+    + (p.date ? `<span class="chip">${fmtDate(p.date)}</span>` : "");
   if (p.status === "del") {
     // jen nápis přes fotku – nečeká na žádné kliknutí
     const m = document.createElement("div"); m.className = "delband";
