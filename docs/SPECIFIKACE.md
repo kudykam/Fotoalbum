@@ -189,6 +189,12 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Písmo je menší než ve verzi 0.3 (test na 15" notebooku); **velikost písma** jde nastavit v Nastavení (⚙): 80–140 %, po 10 %, ukládá se v počítači (zvětší i tlačítka).
 - Náhled: `docs/maketa/pracovna-v2.html`.
 - **Připraveno na příště (zadáno 12. 11. 2026, zatím neimplementováno):** levý panel (složky) i pravý panel (miniatury) půjde **rozšířit / zúžit myší** tažením za okraj (široký, dobře viditelný úchyt). Miniatury vpravo se se šířkou panelu **zvětší**. Zvolené šířky se pamatují v počítači; dvojklik na úchyt vrátí výchozí šířku.
+- **Na příště – čitelný strom při hlubokém vnoření (zadáno 13. 11. 2026, zatím nedělat):** v úzkém panelu se název složky láme po písmenech („tem / p“) a štítek „Dovolená“ s počtem mu bere místo; při mnoha úrovních podsložek by strom byl nečitelný. Řešení:
+  - název složky se **nikdy nedělí uprostřed slova**; když se nevejde, zkrátí se „…“ a celý se ukáže v bublině po najetí myší (a vždy celý v záhlaví fotky / nad miniaturami),
+  - **menší odsazení** každé úrovně (cca 12 px) a tenké svislé vodicí čáry, aby bylo vidět, co pod co patří,
+  - štítek „Dovolená“ jen jako **malá ikona** (např. ☀/✈) a počet fotek menším písmem; obojí se při nedostatku místa schová dřív než název,
+  - u hluboké cesty **drobečková navigace** nad stromem („Pictures › 2025 › Keňa › Masai Mara“) a sbalení vzdálených větví – rozbalená zůstává jen cesta k aktuální složce,
+  - spolu s rozšiřováním panelu myší (viz výše) si děda může strom rozšířit.
 - **Připraveno na příště (12. 11. 2026):** tlačítka **Zpět**, **Znovu** a **Více** se přesunou z řady pod popiskem **úplně nahoru doleva do záhlaví** (hned za název aplikace); **verze programu** (a upozornění na aktualizaci) se přesune **v záhlaví doprava** (vedle ⚙ a „Zavřít program“). V řadě pod popiskem zůstane Předchozí, Další a Bez popisku – další fotka.
 
 ### 2.11 Hlavní obrazovka čtení a hlasové vyhledávání (zadáno 13. 11. 2026, plánováno)
