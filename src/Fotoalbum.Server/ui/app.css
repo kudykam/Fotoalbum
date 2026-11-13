@@ -52,7 +52,10 @@ body.resizing{user-select:none;cursor:col-resize}
 .bar .b{width:auto;min-height:38px;padding:4px 10px;white-space:nowrap}
 .bar .work-actions .b svg{width:18px;height:18px}
 .bar .menu{top:calc(100% + 8px);bottom:auto;left:0;right:auto;z-index:10}
-.view-tabs [aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.view-tabs{align-items:stretch;gap:2px;margin-left:4px;padding-left:12px;border-left:1px solid var(--line)}
+.view-tabs button{min-height:42px;padding:7px 12px 5px;border:0;border-bottom:3px solid var(--line);border-radius:7px 7px 0 0;background:transparent;color:var(--muted);font-weight:700;cursor:pointer}
+.view-tabs button:hover{background:var(--side);color:var(--ink)}
+.view-tabs button[aria-current="page"]{background:var(--accent-soft);border-bottom-color:var(--accent);color:var(--accent)}
 .search{flex:1 1 300px;max-width:660px}
 .search input{flex:1;min-width:100px;min-height:38px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--win)}
 .search input::-webkit-search-cancel-button{display:none}

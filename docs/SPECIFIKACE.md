@@ -209,7 +209,8 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Výsledky: nahoře **nalezená alba** (dlaždice), pod nimi **nalezené fotky** (miniatury s nadpisem); klepnutím se otevře album nebo fotka ve čtení.
 - Vyhledávání funguje i v Knihovně (2.1); bez internetu jen psaním (bez převodu dotazu přes AI).
 
-### 2.12 Miniatury na požádání a dokončení složky
+### 2.12 Záložky, miniatury na požádání a dokončení složky
+- Pracovna, Knihovna a Čtení se přepínají záložkami v záhlaví. Aktivní záložka je výrazně označená a skupina je vizuálně oddělená od akčních tlačítek Zpět, Znovu a Více.
 - V pravém pruhu Pracovny se miniatury načítají podle právě viditelné části. Po přesunu posuvníku mají přednost nově zobrazené fotky. Při překreslení stavu se pruh neposouvá zpět k vybrané fotce. Při výběru jiné fotky nebo složky se vybraná fotka zobrazí.
 - Pravé tlačítko na složce v Pracovně nabídne **Označit složku jako hotovou**. Fotky přímo v této složce, které zatím nikdo neřešil, se označí **Bez popisku**. Existující popisky, rozpracované fotky, fotky označené ke smazání a podsložky se nemění. Akci lze vrátit z potvrzení po provedení.
 - Zelená fajfka ve stromu označí složku, kde jsou všechny její vlastní fotky vyřízené (popsané nebo Bez popisku). Nová nevyřízená fotka nebo vrácení stavu fajfku odebere.

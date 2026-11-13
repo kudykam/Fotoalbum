@@ -14,8 +14,11 @@ function updateView() {
   $("workspace").hidden = $("rail").hidden = $("thumbGrip").hidden = !work;
   $("library").hidden = work;
   $("work").classList.toggle("browse", !work);
-  for (const [view, id] of [["work", "workView"], ["library", "libraryView"], ["reading", "readingView"]])
-    $(id).setAttribute("aria-pressed", view === S.view);
+  for (const [view, id] of [["work", "workView"], ["library", "libraryView"], ["reading", "readingView"]]) {
+    const tab = $(id);
+    if (view === S.view) tab.setAttribute("aria-current", "page");
+    else tab.removeAttribute("aria-current");
+  }
   $("searchMic").disabled = !(R.on && R.receive) && (!S.ai?.hasKey || !navigator.onLine || R.pending > 0);
   $("searchMic").title = $("searchMic").disabled ? "Diktování vyžaduje připojení a nastavený klíč AI" : "Diktovat hledání";
   renderTree();

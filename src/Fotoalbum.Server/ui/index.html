@@ -17,9 +17,9 @@
       <div class="morewrap"><button class="b sm" id="more" title="Více" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span class="t">Více</span></button><div class="menu" id="menu" hidden></div></div>
     </div>
     <nav class="view-tabs" id="viewTabs" aria-label="Obrazovky" hidden>
-      <button class="b small" id="workView" aria-pressed="true">Pracovna</button>
-      <button class="b small" id="libraryView" aria-pressed="false">Knihovna</button>
-      <button class="b small" id="readingView" aria-pressed="false">Čtení</button>
+      <button type="button" id="workView" aria-current="page">Pracovna</button>
+      <button type="button" id="libraryView">Knihovna</button>
+      <button type="button" id="readingView">Čtení</button>
     </nav>
     <div class="search" id="albumSearch" hidden>
       <input id="searchQuery" type="search" maxlength="500" placeholder="Hledat alba a fotky" aria-label="Hledat alba a fotky">
