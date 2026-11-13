@@ -315,3 +315,18 @@ kbd{font-family:var(--ui);font-size:13px;border:1px solid var(--line);border-bot
 .reader-status{color:var(--muted)}
 .reader-nav{display:flex;gap:12px;justify-content:space-between;margin-top:12px}
 @media(max-width:900px){.reader-page{grid-template-columns:1fr}.reader-image img{max-height:55vh}}
+
+/* otevřené album ve čtení: celé okno programu, bez záhlaví a stromu složek */
+.app.reading-full{grid-template-rows:minmax(0,1fr)}
+.app.reading-full .bar,.app.reading-full .side,.app.reading-full #folderGrip{display:none!important}
+.app.reading-full .body,.app.reading-full .body.browse,.app.reading-full .body.nosidebar{grid-template-columns:minmax(0,1fr)!important}
+.app.reading-full .library{padding:10px 14px 12px;display:flex;flex-direction:column;overflow:hidden}
+.app.reading-full .reader{flex:1;min-height:0}
+.app.reading-full .reader-tools{margin-bottom:10px}
+.app.reading-full .reader-page{flex:1;min-height:0}
+.app.reading-full .reader-image img{max-height:100%}
+.reader-album{font-size:18px;margin-right:auto}
+.reader:fullscreen .reader-image img{max-height:100%}
+.app.reading-full .reader-page:not(.overlay),.reader:fullscreen .reader-page:not(.overlay){grid-template-columns:minmax(0,1.7fr) minmax(320px,1fr)}
+.reader-page.overlay .reader-image{position:absolute;inset:0}
+.reader-page.overlay .reader-image img{position:absolute;inset:0;width:100%;height:100%;max-height:none;object-fit:contain}

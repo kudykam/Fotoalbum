@@ -11,10 +11,12 @@ function updateView() {
   $("workActions").hidden = !active || !work;
   $("viewTabs").hidden = !active;
   $("albumSearch").hidden = !active || work || !!B.reader;
+  // otevřené album zabere celé okno programu (bez záhlaví a stromu složek)
+  $("app").classList.toggle("reading-full", !work && !!(B.reader || B.intro));
   $("workspace").hidden = $("rail").hidden = $("thumbGrip").hidden = !work;
   $("library").hidden = work;
   $("work").classList.toggle("browse", !work);
-  for (const [view, id] of [["work", "workView"], ["library", "libraryView"], ["reading", "readingView"]]) {
+  for (const [view, id] of [["work", "workView"], ["reading", "readingView"]]) {
     const tab = $(id);
     if (view === S.view) tab.setAttribute("aria-current", "page");
     else tab.removeAttribute("aria-current");
@@ -238,12 +240,17 @@ function renderLibrary() {
   };
   el.querySelectorAll("[data-album]").forEach(button => button.onclick = () => {
     const album = B.albums.find(item => item.path === button.dataset.album);
-    openReader(album, button.dataset.photo);
+    openReader(album, button.dataset.photo || undefined);
   });
 }
 
 function openReader(album, photoPath) {
   stopAutoplay();
+  // album bez popisků: ukázat všechny fotky, ať se nezobrazí prázdná stránka
+  if (!album.photos.some(item => item.caption.trim())) B.captioned = false;
+  // bez úvodu alba se začíná rovnou první fotkou
+  if (photoPath === undefined && !(album.intro || "").trim())
+    photoPath = album.photos.find(item => !B.captioned || item.caption.trim())?.path;
   const photo = album.photos.find(item => item.path === photoPath);
   if (photo && !photo.caption) B.captioned = false;
   B.reader = { album, photoPath: photo?.path ?? null };
@@ -283,13 +290,14 @@ function renderReader() {
   }
   const focused = reader.contains(document.activeElement) ? document.activeElement.id : "";
   reader.innerHTML = `<div class="reader-tools">
-    <button class="b small" id="readerBack">← Zpět na alba</button>
+    <button class="b small solid" id="readerBack">← Zpět na alba</button>
+    <strong class="reader-album">${esc(albumTitle(album))}</strong>
     <label>Vzhled <select id="readerLayout"><option value="book">Kniha</option><option value="overlay">Fotka přes celou plochu</option></select></label>
     <label class="toggle"><input id="captionOnly" type="checkbox" ${B.captioned ? "checked" : ""}> Jen fotky s popiskem</label>
     <button class="b small" id="autoPlay" ${photos.length ? "" : "disabled"}>${B.autoplay ? "Zastavit přehrávání" : "Přehrávat samo"}</button>
     <button class="b small" id="fullScreen">${document.fullscreenElement === reader ? "Ukončit celou obrazovku" : "Celá obrazovka"}</button>
     ${overlay ? `<button class="b small" id="toggleCaption">${B.captionVisible ? "Skrýt popisek" : "Ukázat popisek"}</button>` : ""}
-    ${!photo && S.view === "library" ? '<button class="b small" id="editIntro">Upravit úvod alba</button>' : ""}
+    ${!photo ? '<button class="b small" id="editIntro">Upravit úvod alba</button>' : ""}
   </div>
   <div class="reader-page ${overlay ? "overlay" : ""}" id="readerPage">
     <div class="reader-image ${image.rotation % 180 ? "rotated" : ""}"><img alt="${esc(photoTitle(image))}" src="/api/image?path=${q(image.path)}" style="transform:rotate(${image.rotation}deg)"></div>
@@ -403,7 +411,7 @@ function readerKey(event) {
   }
 }
 
-for (const [view, id] of [["work", "workView"], ["library", "libraryView"], ["reading", "readingView"]])
+for (const [view, id] of [["work", "workView"], ["reading", "readingView"]])
   $(id).onclick = () => showView(view).catch(fail);
 $("searchQuery").addEventListener("input", queueSearch);
 $("searchQuery").addEventListener("keydown", event => {

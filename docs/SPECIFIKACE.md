@@ -10,7 +10,7 @@ Hlavní uživatel je senior → **velká písmena, velká tlačítka s ikonou i 
 
 ## 2. Obrazovky
 
-### 2.1 Knihovna (hlavní stránka)
+### 2.1 Knihovna (hlavní stránka) – *zrušena jako samostatná obrazovka 13. 11. 2026, viz 2.13*
 - Dlaždice alb: titulní fotka, název, období, postup („86 % popsáno“).
 - Album = složka ve stromu fotek.
 - Řazení podle **data** nebo **názvu**; vyhledávání v popiscích – i **hlasem** (viz 2.11).
@@ -210,11 +210,18 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Vyhledávání funguje i v Knihovně (2.1); bez internetu jen psaním (bez převodu dotazu přes AI).
 
 ### 2.12 Záložky, miniatury na požádání a dokončení složky
-- Pracovna, Knihovna a Čtení se přepínají záložkami v záhlaví. Aktivní záložka je výrazně označená a skupina je vizuálně oddělená od akčních tlačítek Zpět, Znovu a Více.
+- Pracovna a Čtení se přepínají záložkami v záhlaví (samostatná Knihovna zrušena, viz 2.13). Aktivní záložka je výrazně označená a skupina je vizuálně oddělená od akčních tlačítek Zpět, Znovu a Více.
 - Cesta k vybrané složce se v Pracovně zobrazuje nad velkou fotkou a v úzkém okně se zalamuje. Přes fotku se zobrazuje její nadpis nebo název souboru a datum.
 - V pravém pruhu Pracovny se miniatury načítají podle právě viditelné části. Po přesunu posuvníku mají přednost nově zobrazené fotky. Při překreslení stavu se pruh neposouvá zpět k vybrané fotce. Při výběru jiné fotky nebo složky se vybraná fotka zobrazí.
 - Pravé tlačítko na složce v Pracovně nabídne **Označit složku jako hotovou**. Fotky přímo v této složce, které zatím nikdo neřešil, se označí **Bez popisku**. Existující popisky, rozpracované fotky, fotky označené ke smazání a podsložky se nemění. Akci lze vrátit z potvrzení po provedení.
 - Zelená fajfka ve stromu označí složku, kde jsou všechny její vlastní fotky vyřízené (popsané nebo Bez popisku). Nová nevyřízená fotka nebo vrácení stavu fajfku odebere.
+
+### 2.13 Čtení místo Knihovny (rozhodnuto 13. 11. 2026)
+- **Samostatná záložka Knihovna se ruší** – zbytečně zdvojovala Čtení. Záložky: **Pracovna | Čtení**.
+- **Hlavní stránka Čtení:** velké dlaždice **složek označených jako Dovolená** (titulní fotka, název, období), vlevo strom složek, v záhlaví vyhledávání s mikrofonem (2.11), přepínač „Ukázat i běžné fotky“, řazení podle data / názvu.
+- **Klepnutí na dlaždici hned otevře čtení na celé okno programu** (záhlaví a strom se schovají). Začíná se úvodem alba, pokud ho album má, jinak rovnou první fotkou. Nahoře lišta: **← Zpět na alba** (i klávesa Esc), název alba, Vzhled (Kniha / Fotka přes celou plochu), Jen fotky s popiskem, Přehrávat samo, **Celá obrazovka** (celé okno Windows přes celý monitor, bez rámečku a hlavního panelu; Esc vrátí), Skrýt / ukázat popisek.
+- Popisek je vidět vždy (vedle fotky jako kniha, nebo v poloprůhledném pruhu přes fotku); šipky ← → listují.
+- Úvod alba se upravuje v Čtení na úvodní stránce alba („Upravit úvod alba“).
 
 ### 2.8 Automatické aktualizace (schváleno 12. 11. 2026)
 - Zdroj: **GitHub Releases** repozitáře (veřejné, bez přihlášení). Nástroj **Velopack** (MIT): instalace do profilu uživatele bez práv správce, rozdílové aktualizace, kontrola celistvosti.
@@ -350,7 +357,7 @@ Mají přednost před starším textem této specifikace, kde se liší.
 ### Etapy
 1. **MVP – hotovo** (čeká na vyzkoušení ve Windows): strom složek, miniatury, velká fotka, ruční popisek, automatické ukládání do metadat, označení ke smazání, stavy „bez popisku“ a pokračování (2.5), záloha databáze, lokální server + webové rozhraní.
 2. **Diktování a AI – implementováno, čeká na test se skutečným klíčem:** 🎤 Diktovat (přepis po větách), ✨ Korektura, hlasové úpravy („Diktovat úpravu“ → „Použít úpravu“), nadpis od AI, značka „✍ Jen ruční text“, dotaz při odchodu bez korektury, slovníček, délka popisku, útrata; vše vratné tlačítkem Zpět. Klávesa F2 = diktovat. Diktuje se do pole pod fotkou, „Schválit a další fotka“ (2.10).
-3. **Knihovna alb – implementováno:** úvodní texty, vyhledávání psaním i hlasem (2.1, 2.11).
+3. **Úvodní texty alb a vyhledávání psaním i hlasem – implementováno** (2.11, 2.13); samostatná Knihovna zrušena.
 4. Staré vepsané popisky: přečtení a odstranění (kap. 7).
 5. **Čtecí režim – implementováno:** hlavní obrazovka s dovolenými a vyhledáváním (2.11), obě varianty čtení (2.3). Plánováno: „Pustit na televizi“ (2.3.1) a DLNA server pro TV (2.3.2).
 6. Tablet jako druhá obrazovka PC (kap. 9): poslech v domácí síti, párování QR kódem, probuzení PC.

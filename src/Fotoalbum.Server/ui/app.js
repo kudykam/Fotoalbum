@@ -1081,6 +1081,8 @@ document.addEventListener("keydown", e => {
     closeMenu();
     // Esc zavře nastavení a vrátí do Pracovny
     if (!$("setup").hidden && S.state && S.state.configured && $("back")) $("back").click();
+    // Esc ve čtení (mimo celou obrazovku) = zpět na alba
+    else if (S.view !== "work" && typeof B !== "undefined" && B.reader && !B.intro && !document.fullscreenElement) $("readerBack")?.click();
     return;
   }
   // Ctrl+Alt+S – na české klávesnici je Ctrl+Alt = AltGr a e.key je „đ“, proto podle fyzické klávesy

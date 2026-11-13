@@ -49,6 +49,8 @@ internal sealed class MainForm : Form
                 if (a.PermissionKind == CoreWebView2PermissionKind.Microphone && a.Uri.StartsWith(_server.BaseUrl, StringComparison.OrdinalIgnoreCase))
                     a.State = CoreWebView2PermissionState.Allow;
             };
+            // „Celá obrazovka“ ve čtení: roztáhnout celé okno přes obrazovku (bez rámečku a hlavního panelu)
+            core.ContainsFullScreenElementChanged += (_, _) => SetFullScreen(core.ContainsFullScreenElement);
             core.NavigationStarting += (_, a) =>
             {
                 if (!a.Uri.StartsWith(_server.BaseUrl, StringComparison.OrdinalIgnoreCase)) a.Cancel = true;
@@ -72,6 +74,30 @@ internal sealed class MainForm : Form
             MessageBox.Show("Okno Fotokroniky se nepodařilo otevřít: " + ex.Message, "Fotokronika", MessageBoxButtons.OK, MessageBoxIcon.Error);
             CloseConfirmed();
         }
+    }
+
+    private FormWindowState _stateBeforeFullScreen;
+    private bool _fullScreen;
+
+    /// <summary>Přepne okno na celou obrazovku (bez rámečku, přes hlavní panel Windows) a zpět.</summary>
+    private void SetFullScreen(bool on)
+    {
+        if (on == _fullScreen) return;
+        _fullScreen = on;
+        SuspendLayout();
+        if (on)
+        {
+            _stateBeforeFullScreen = WindowState;
+            WindowState = FormWindowState.Normal; // jinak maximalizované okno nepřekryje hlavní panel
+            FormBorderStyle = FormBorderStyle.None;
+            WindowState = FormWindowState.Maximized;
+        }
+        else
+        {
+            FormBorderStyle = FormBorderStyle.Sizable;
+            WindowState = _stateBeforeFullScreen == FormWindowState.Minimized ? FormWindowState.Normal : _stateBeforeFullScreen;
+        }
+        ResumeLayout();
     }
 
     /// <summary>Rozhraní potvrdilo zavření (souhrn mazání vyřešen, vše uloženo).</summary>
