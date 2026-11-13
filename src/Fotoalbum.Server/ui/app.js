@@ -5,7 +5,7 @@
 const $ = id => document.getElementById(id);
 const S = {
   state: null, host: "web", canPick: false,
-  tree: null, open: {}, folder: null, photos: [], cur: null,
+  tree: null, open: new Set([""]), browseOpen: new Set([""]), view: "work", folder: null, photos: [], cur: null,
   fUndone: false, onlyVacation: false, side: true, menu: false,
   keep: new Set(),        // fotky vyřízené během zapnutého filtru – zůstanou vidět do přepnutí filtru
   saved: "",              // uložený popisek aktuální fotky
@@ -76,6 +76,7 @@ async function boot() {
   await loadAi();
   if (!S.state.configured) return showSetup(true);
   $("setup").hidden = true; $("work").hidden = false;
+  applyPanelWidths(); updateView();
   await loadTree();
   const start = S.state.lastFolder ?? firstFolderWithPhotos(S.tree);
   if (start != null) await openFolder(start, true);
@@ -108,9 +109,9 @@ function wireTextSize() {
 
 function showSetup(first) {
   const st = S.state;
-  $("work").hidden = true; const el = $("setup"); el.hidden = false;
+  $("work").hidden = true; const el = $("setup"); el.hidden = false; updateView();
   el.innerHTML = `<div class="card">
-    <div class="head"><h1>${first ? "Vítejte ve Fotokronice" : "Nastavení"}</h1>${first ? "" : `<button class="b small solid" id="back">Zpět do Pracovny</button>`}</div>
+    <div class="head"><h1>${first ? "Vítejte ve Fotokronice" : "Nastavení"}</h1>${first ? "" : `<button class="b small solid" id="back">Zpět do Fotokroniky</button>`}</div>
     ${st.problem ? `<div class="note bad">${esc(st.problem)}</div>` : ""}
     <div class="sec" style="border-top:0;padding-top:0">
       ${first ? "" : "<h2>Složka s fotkami</h2>"}
@@ -138,11 +139,11 @@ function showSetup(first) {
   $("saveRoot").onclick = async () => {
     try {
       S.state = await api("POST", "/api/settings", { photoRoot: $("rootIn").value, autoImport: $("autoImp").checked });
-      S.tree = null; S.folder = null; S.cur = null; S.photos = [];
+      S.tree = null; S.folder = null; S.cur = null; S.photos = []; S.view = "work"; resetLibrary();
       el.hidden = true; await boot();
     } catch (e) { fail(e); }
   };
-  if (!first) $("back").onclick = () => { el.hidden = true; $("work").hidden = false; };
+  if (!first) $("back").onclick = () => { el.hidden = true; $("work").hidden = false; updateView(); };
   if (!first) wireAiSection();
   if (!first) wireTextSize();
   if (!first && S.app && S.app.installed) {
@@ -196,7 +197,6 @@ const ico = {
   folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h6l2 2h10v11H3z"/></svg>',
   open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>',
   shut: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>',
-  none: '<svg viewBox="0 0 24 24"></svg>',
 };
 async function loadTree() { S.tree = await api("GET", "/api/tree"); renderTree(); }
 function firstFolderWithPhotos(n) {
@@ -208,32 +208,83 @@ function firstFolderWithPhotos(n) {
 function findNode(n, path) { if (!n) return null; if (n.path === path) return n; for (const c of n.children) { const f = findNode(c, path); if (f) return f; } return null; }
 function ownCount(f) { return f.total - f.children.reduce((a, c) => a + c.total, 0); }
 function hasVacation(f) { return f.kind === "dovolena" || f.children.some(hasVacation); }
-function expandTo(path) { const parts = path.split("/"); for (let i = 1; i < parts.length; i++) S.open[parts.slice(0, i).join("/")] = true; }
+function expandTo(path, expanded, includeFolder = false) {
+  const parts = path.split("/");
+  expanded.clear();
+  expanded.add("");
+  for (let i = 1; i < parts.length + Number(includeFolder); i++) expanded.add(parts.slice(0, i).join("/"));
+}
 function renderTree() {
-  const el = $("tree"); el.innerHTML = "";
-  if (S.open[""] === undefined) S.open[""] = true;
+  const el = $("tree");
+  const crumbs = $("crumbs");
+  el.replaceChildren(); crumbs.replaceChildren();
+  if (!S.tree) return;
+  const browse = S.view !== "work";
+  const selected = browse ? B.folder : S.folder;
+  const expanded = browse ? S.browseOpen : S.open;
+  const onlyVacation = browse ? S.view === "reading" && !B.everyday : S.onlyVacation;
+  const shown = f => !onlyVacation || hasVacation(f);
+  const choose = path => {
+    if (browse) chooseBrowseFolder(path);
+    else openFolder(path).catch(fail);
+  };
   const nodes = ownCount(S.tree) > 0 || !S.tree.children.length ? [S.tree] : S.tree.children;
-  const shown = f => !S.onlyVacation || hasVacation(f);
   const mk = (f, host) => {
     if (!shown(f)) return;
     const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "tree-line";
     const kids = f.children.filter(shown);
-    const has = kids.length > 0;
+    if (kids.length) {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "tree-expand";
+      toggle.dataset.path = f.path;
+      toggle.innerHTML = expanded.has(f.path) ? ico.open : ico.shut;
+      toggle.setAttribute("aria-expanded", expanded.has(f.path));
+      toggle.setAttribute("aria-label", (expanded.has(f.path) ? "Sbalit " : "Rozbalit ") + f.name);
+      toggle.onclick = () => {
+        if (expanded.has(f.path)) expanded.delete(f.path);
+        else expandTo(f.path, expanded, true);
+        renderTree();
+        [...el.querySelectorAll(".tree-expand")].find(button => button.dataset.path === f.path)?.focus();
+      };
+      row.append(toggle);
+    }
     const b = document.createElement("button");
-    b.className = "node"; b.setAttribute("aria-current", S.folder === f.path);
-    b.innerHTML = (has ? (S.open[f.path] ? ico.open : ico.shut) : ico.none) + ico.folder +
-      `<span class="nm">${esc(f.name || "Všechny fotky")}</span>${f.kind === "dovolena" && !f.kindInherited ? '<span class="tag">Dovolená</span>' : ""}<span class="cnt">${f.handled}/${f.total}</span>`;
-    b.onclick = () => {
-      if (has) S.open[f.path] = !S.open[f.path];
-      if (ownCount(f) > 0 || !has) openFolder(f.path); else renderTree();
-    };
-    li.append(b);
-    if (has && S.open[f.path]) { const ul = document.createElement("ul"); kids.forEach(c => mk(c, ul)); li.append(ul); }
+    b.className = "node";
+    b.title = f.name || "Všechny fotky";
+    b.setAttribute("aria-current", selected === f.path);
+    b.innerHTML = ico.folder + `<span class="nm">${esc(b.title)}</span>`
+      + (f.kind === "dovolena" && !f.kindInherited ? '<span class="tag" title="Dovolená" aria-label="Dovolená">☀</span>' : "")
+      + `<span class="cnt" title="Vyřízené fotky">${f.handled}/${f.total}</span>`;
+    b.onclick = () => choose(f.path);
+    row.append(b); li.append(row);
+    if (kids.length && expanded.has(f.path)) {
+      const ul = document.createElement("ul");
+      kids.forEach(c => mk(c, ul));
+      li.append(ul);
+    }
     host.append(li);
   };
   nodes.forEach(n => mk(n, el));
-  if (!el.children.length) el.innerHTML = '<li class="treeempty">Žádná složka zatím není označená jako dovolená.</li>';
-  renderKindRow();
+  if (!el.children.length) el.innerHTML = '<li class="treeempty">Žádná složka se zvoleným filtrem.</li>';
+  const parts = selected ? selected.split("/") : [];
+  crumbs.hidden = parts.length < 2;
+  if (!crumbs.hidden) {
+    const names = [S.tree.name || "Všechny fotky", ...parts];
+    names.forEach((name, i) => {
+      if (i) crumbs.append(" › ");
+      const button = document.createElement("button");
+      button.textContent = name;
+      button.title = name;
+      button.onclick = () => choose(parts.slice(0, i).join("/"));
+      if (i === names.length - 1) button.setAttribute("aria-current", "location");
+      crumbs.append(button);
+    });
+    crumbs.scrollLeft = crumbs.scrollWidth;
+  }
+  if (!browse) renderKindRow();
 }
 function renderKindRow() {
   const n = S.folder != null ? findNode(S.tree, S.folder) : null; const el = $("kindRow");
@@ -256,7 +307,7 @@ async function refreshFolderMeta() {
 async function openFolder(path, initial) {
   if (!initial) { if (!(await guardLeave())) return; await commit(); closeMenu(); }
   if (S.cur) api("POST", "/api/photo/leave", { folder: S.folder, path: S.cur.path }).catch(() => {});
-  S.folder = path; expandTo(path); renderTree();
+  S.folder = path; expandTo(path, S.open, true); renderTree();
   S.hist = []; S.hi = 0; S.keep.clear();
   $("loading").hidden = false;
   try {
@@ -401,7 +452,7 @@ function renderStrip() {
     }), { root: el, rootMargin: "800px 0px" });
     v.forEach(ph => {
       const b = document.createElement("button"); b.className = "thumb"; b.setAttribute("role", "listitem"); b.title = ph.title || ph.name;
-      b.innerHTML = `<img alt="${esc(ph.name)}" data-src="/api/thumb?size=240&path=${q(ph.path)}"><span class="badge"></span>`;
+      b.innerHTML = `<img alt="${esc(ph.name)}" data-src="/api/thumb?size=640&path=${q(ph.path)}"><span class="badge"></span>`;
       b.onclick = () => go(ph); stripMap.set(b, ph); el.append(b); io.observe(b);
     });
   }
@@ -414,6 +465,8 @@ function renderStrip() {
   }
   const all = S.photos.filter(x => x.status !== "del");
   $("progress").innerHTML = p ? `<b>Fotka ${v.indexOf(p) + 1} z ${v.length}</b>vyřízeno ${all.filter(handled).length} z ${all.length}` : "";
+  const folder = findNode(S.tree, S.folder);
+  $("railFolder").textContent = folder?.name || "Všechny fotky";
   drawTrack();
   const a = [...stripMap.keys()].find(b => stripMap.get(b) === p); if (a) a.scrollIntoView({ block: "center", inline: "nearest" });
 }
@@ -454,7 +507,7 @@ function renderStage(newPhoto) {
   // záhlaví: nadpis z popisku (jakmile existuje), jinak název souboru
   $("meta").innerHTML = (p.title ? `<span class="chip title" title="${esc(p.name)}">${esc(p.title)}</span>` : `<span class="chip">${esc(p.name)}</span>`)
     + (p.date ? `<span class="chip">${fmtDate(p.date)}</span>` : "")
-    + `<span class="chip">${esc(n ? (n.name || "Všechny fotky") : "")}</span>`;
+    + `<span class="chip folder-name">${esc(n ? (n.name || "Všechny fotky") : "")}</span>`;
   if (p.status === "del") {
     // jen nápis přes fotku – nečeká na žádné kliknutí
     const m = document.createElement("div"); m.className = "delband";
@@ -606,11 +659,19 @@ function fmtTime(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60
 
 async function loadAi() { try { S.ai = await api("GET", "/api/ai"); } catch { S.ai = null; } renderButtons(); }
 
-async function recStart() {
-  const p = S.cur; if (!p || R.on || S.busy) return;
+async function recStart(receive = null) {
+  const p = S.cur;
+  if ((!p && !receive) || R.on || R.starting || R.pending || S.busy) return false;
+  R.starting = true;
   try { R.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } }); }
-  catch { toast("Mikrofon není dostupný. Je připojený a povolený?", null, 6000); return; }
-  R.mode = p.source === "ai" && !isDirty() && S.saved.trim() ? "fix" : "append";
+  catch { toast("Mikrofon není dostupný. Je připojený a povolený?", null, 6000); return false; }
+  finally { R.starting = false; }
+  if ((receive && ($("work").hidden || S.view === "work")) || (!receive && (p !== S.cur || S.view !== "work" || $("work").hidden))) {
+    R.stream.getTracks().forEach(track => track.stop());
+    return false;
+  }
+  R.receive = receive;
+  R.mode = !receive && p.source === "ai" && !isDirty() && S.saved.trim() ? "fix" : "append";
   if (R.mode === "fix") S.fixText = "";
   R.target = p; R.on = true; R.buf = []; R.len = 0; R.voicedSec = 0; R.levels = []; R.started = R.lastVoice = performance.now();
   R.ctx = new AudioContext();
@@ -621,9 +682,10 @@ async function recStart() {
   // pojistka: po minutě ticha (nebo po 10 minutách) se nahrávání zastaví samo
   R.timer = setInterval(() => {
     const now = performance.now();
-    if (now - R.lastVoice > 60000 || now - R.started > 600000) recStop(); else { renderCaption(false); renderButtons(); }
+    if (now - R.lastVoice > 60000 || now - R.started > (receive ? 60000 : 600000)) recStop(); else if (!receive) { renderCaption(false); renderButtons(); }
   }, 500);
   renderAll(false);
+  return true;
 }
 function onAudio(d) {
   if (!R.on) return;
@@ -641,16 +703,23 @@ function onAudio(d) {
 }
 function flushSegment() {
   if (!R.len) return;
-  const chunks = R.buf, len = R.len, voiced = R.voicedSec >= 0.5, rate = R.ctx.sampleRate, target = R.target, mode = R.mode;
+  const chunks = R.buf, len = R.len, voiced = R.voicedSec >= 0.5, rate = R.ctx.sampleRate, target = R.target, mode = R.mode, receive = R.receive;
   R.buf = []; R.len = 0; R.voicedSec = 0;
   if (!voiced) return; // ticho a šum se neposílají
   const wav = encodeWav(chunks, len, rate);
   R.pending++; renderCaption(false); renderButtons();
   R.queue = R.queue.then(async () => {
     try {
-      const prev = mode === "fix" ? (S.fixText || "") : $("ta").value;
+      const prev = receive ? receive.value : mode === "fix" ? (S.fixText || "") : $("ta").value;
       const r = await api("POST", "/api/ai/transcribe", { audio: wav, previous: prev });
-      if (r.text && S.cur === target && !isRepeat(r.text, mode === "fix" ? (S.fixText || "") : $("ta").value)) appendDictation(r.text, mode);
+      if (receive) {
+        if (r.text && !isRepeat(r.text, receive.value)) {
+          receive.value = [receive.value, r.text].filter(Boolean).join(" ");
+          receive.update(receive.value);
+        }
+      } else if (r.text && S.cur === target && !isRepeat(r.text, mode === "fix" ? (S.fixText || "") : $("ta").value)) {
+        appendDictation(r.text, mode);
+      }
     } catch (e) { fail(e); }
     finally { R.pending--; renderCaption(false); renderButtons(); }
   });
@@ -693,8 +762,12 @@ async function recStop() {
   try { R.proc.disconnect(); } catch { }
   R.stream.getTracks().forEach(t => t.stop());
   try { await R.ctx.close(); } catch { }
-  renderAll(false);
+  if (R.receive) R.receive.stopping?.();
+  else renderAll(false);
   await R.queue;
+  const receive = R.receive;
+  R.receive = null;
+  if (receive) receive.finish(receive.value);
   if (R.mode === "fix" && S.fixText) toast("Pokyn k úpravě je připravený. Stiskněte Použít úpravu.", null, 4000);
 }
 /** Zvuk → WAV 16 kHz mono 16 bit → base64. */
@@ -809,6 +882,7 @@ async function wireAiSection() {
 async function requestClose() {
   try {
     if (!(await guardLeave())) return;
+    if (S.view !== "work" && !confirmIntroLeave()) return;
     await commit();
     const marked = S.state && S.state.configured ? await api("GET", "/api/trash") : [];
     if (!marked.length) return quit(null);
@@ -836,6 +910,9 @@ async function quit(moveToBin) {
 }
 /** Skryté nastavení pro správce (Ctrl+Alt+S nebo menu ikony u hodin). */
 async function openSettings() {
+  if (S.view !== "work" && !confirmIntroLeave()) return;
+  if (R.on && R.receive) await recStop();
+  stopAutoplay();
   try { const r = await api("GET", "/api/state"); S.state = r.state; renderApp(r.app); } catch { }
   try { S.ai = await api("GET", "/api/ai"); } catch { }
   closeMenu(); $("modalHost").innerHTML = "";
@@ -845,7 +922,7 @@ window.fotoalbum = {
   requestClose,
   showSettings: openSettings,
   // volá Windows aplikace po zkopírování fotek z karty – strom složek se obnoví
-  refreshFolders: () => { if (S.state && S.state.configured && !$("work").hidden) loadTree().then(() => toast("Z karty přibyly nové fotky – najdete je ve stromu složek.")).catch(() => {}); },
+  refreshFolders: () => { if (S.state && S.state.configured && !$("work").hidden) loadTree().then(() => { if (S.view !== "work") loadAlbums(); }).then(() => toast("Z karty přibyly nové fotky – najdete je ve stromu složek.")).catch(() => {}); },
 };
 
 /* ---------- události ---------- */
@@ -874,7 +951,7 @@ $("ta").addEventListener("input", () => {
   renderCaption(false); renderButtons();
 });
 document.addEventListener("keydown", e => {
-  if ($("modalHost").innerHTML) return;
+  if (e.defaultPrevented || $("modalHost").innerHTML) return;
   if (e.key === "Escape") {
     closeMenu();
     // Esc zavře nastavení a vrátí do Pracovny
@@ -884,6 +961,7 @@ document.addEventListener("keydown", e => {
   // Ctrl+Alt+S – na české klávesnici je Ctrl+Alt = AltGr a e.key je „đ“, proto podle fyzické klávesy
   if (e.ctrlKey && e.altKey && e.code === "KeyS") { e.preventDefault(); openSettings(); return; }
   if ($("work").hidden) return;
+  if (S.view !== "work") { readerKey(e); return; }
   if (e.key === "F2") { e.preventDefault(); if (S.ai && S.ai.hasKey) (R.on ? recStop() : recStart()); return; }
   if (e.key === "PageUp") { e.preventDefault(); step(-1); return; }
   if (e.key === "PageDown") { e.preventDefault(); step(1); return; }
@@ -900,4 +978,66 @@ window.addEventListener("beforeunload", () => {
 });
 new ResizeObserver(() => { fitImage(); drawTrack(); }).observe($("stage"));
 setInterval(updatePending, 15000);
-boot();
+
+
+/* ---------- měnitelná šířka panelů ---------- */
+function applyPanelWidths() {
+  for (const [property, value] of [["--folders", S.state.folderPanelWidth], ["--thumbnails", S.state.thumbnailPanelWidth]]) {
+    if (value == null) $("work").style.removeProperty(property);
+    else $("work").style.setProperty(property, value + "px");
+  }
+}
+function wireSplitter(gripId, panelId, panel, property, stateKey, direction) {
+  const grip = $(gripId), target = $(panelId), work = $("work");
+  let drag = null;
+  function limit(width) {
+    return Math.round(Math.max(140, Math.min(640, work.clientWidth * (direction === 1 ? 0.28 : 0.27), width)));
+  }
+  function resize(width) {
+    work.style.setProperty(property, width + "px");
+    grip.setAttribute("aria-valuenow", target.clientWidth);
+  }
+  async function save(width) {
+    S.state[stateKey] = width;
+    applyPanelWidths();
+    grip.setAttribute("aria-valuenow", target.clientWidth);
+    try { await api("PUT", "/api/settings/panel", { panel, width }); }
+    catch (e) { fail(e); }
+  }
+  grip.setAttribute("aria-valuemin", 140);
+  grip.setAttribute("aria-valuemax", 640);
+  new ResizeObserver(() => grip.setAttribute("aria-valuenow", target.clientWidth)).observe(target);
+  grip.addEventListener("pointerdown", e => {
+    if (e.button !== 0 || drag) return;
+    drag = { id: e.pointerId, x: e.clientX, width: target.getBoundingClientRect().width,
+      zoom: target.getBoundingClientRect().width / target.offsetWidth, next: null };
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add("dragging");
+    document.body.classList.add("resizing");
+  });
+  grip.addEventListener("pointermove", e => {
+    if (drag?.id !== e.pointerId || Math.abs(e.clientX - drag.x) < 2 && drag.next === null) return;
+    drag.next = limit((drag.width + direction * (e.clientX - drag.x)) / drag.zoom);
+    resize(drag.next);
+  });
+  function finish(e, cancelled) {
+    if (drag?.id !== e.pointerId) return;
+    const width = drag.next;
+    drag = null;
+    grip.classList.remove("dragging");
+    document.body.classList.remove("resizing");
+    if (cancelled) applyPanelWidths();
+    else if (width !== null) save(width);
+  }
+  grip.addEventListener("pointerup", e => finish(e, false));
+  grip.addEventListener("pointercancel", e => finish(e, true));
+  grip.addEventListener("lostpointercapture", e => finish(e, true));
+  grip.addEventListener("dblclick", () => save(null));
+  grip.addEventListener("keydown", e => {
+    if (!["ArrowLeft", "ArrowRight", "Home"].includes(e.key)) return;
+    e.preventDefault();
+    save(e.key === "Home" ? null : limit(target.offsetWidth + direction * (e.key === "ArrowRight" ? 16 : -16)));
+  });
+}
+wireSplitter("folderGrip", "folderPanel", "folders", "--folders", "folderPanelWidth", 1);
+wireSplitter("thumbGrip", "rail", "thumbnails", "--thumbnails", "thumbnailPanelWidth", -1);

@@ -42,6 +42,9 @@ public sealed class AppSettings
     public int TextSize { get; set; } = 100;
 
     /// <summary>Kolik zatím stála AI (USD, podle OpenRouteru).</summary>
+    public int? FolderPanelWidth { get; set; }
+    public int? ThumbnailPanelWidth { get; set; }
+    public string? ReadingLayout { get; set; }
     public double AiCostUsd { get; set; }
 }
 

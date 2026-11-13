@@ -3,7 +3,7 @@ using Fotoalbum.Core.Ai;
 namespace Fotoalbum.Core;
 
 public sealed record StateDto(bool Configured, string? Root, string? RootName, bool ExifToolOk, string? ExifToolVersion,
-    string? LastFolder, int PendingWrites, string? Problem, bool AutoImport, int TextSize);
+    string? LastFolder, int PendingWrites, string? Problem, bool AutoImport, int TextSize, int? FolderPanelWidth = null, int? ThumbnailPanelWidth = null, string? ReadingLayout = null);
 
 public sealed record FolderDto(string Path, string Name, string Kind, bool KindInherited, int Total, int Handled, int Done,
     List<FolderDto> Children);
@@ -12,6 +12,9 @@ public sealed record PhotoDto(string Path, string Name, string? Date, string Sta
     int Rotation, bool Vacation, string? Title, bool WritePending, string? WriteError, string Source, string? Raw);
 
 public sealed record FolderPhotosDto(string Folder, string? LastPhoto, List<PhotoDto> Photos);
+
+public sealed record ReadingPhotoDto(string Path, string Name, string? Date, string? Title, string Caption, int Rotation);
+public sealed record ReadingAlbumDto(string Path, string Name, string Kind, string Intro, int Handled, List<ReadingPhotoDto> Photos);
 
 public sealed record TrashItemDto(string Path, string Name, string Album);
 
@@ -86,7 +89,7 @@ public sealed class FotoalbumService : IDisposable
         var lib = _library;
         return new StateDto(lib is not null, lib?.Root, lib is null ? null : Path.GetFileName(lib.Root.TrimEnd(Path.DirectorySeparatorChar)),
             _exif is not null, _exif?.TryVersion(), Db.GetState("last_folder"), Writer.PendingCount + Db.GetPendingWrites().Count, _problem,
-            _settings.Current.AutoImport, _settings.Current.TextSize);
+            _settings.Current.AutoImport, _settings.Current.TextSize, _settings.Current.FolderPanelWidth, _settings.Current.ThumbnailPanelWidth, _settings.Current.ReadingLayout);
     }
 
     /// <summary>Nastaví kanál aktualizací (stable / test).</summary>
@@ -109,6 +112,23 @@ public sealed class FotoalbumService : IDisposable
         }
         if (exifToolPath is not null) _settings.Update(s => s.ExifToolPath = exifToolPath.Trim().Length == 0 ? null : exifToolPath.Trim());
         Reload();
+    }
+
+    public void SetReadingLayout(string layout)
+    {
+        if (layout is not ("book" or "overlay")) throw new ArgumentException("Neznámé rozložení.");
+        _settings.Update(settings => settings.ReadingLayout = layout);
+    }
+
+    public void SetPanelWidth(string panel, int? width)
+    {
+        if (panel is not ("folders" or "thumbnails")) throw new ArgumentException("Neznámý panel.");
+        int? size = width is int value ? Math.Clamp(value, 140, 640) : null;
+        _settings.Update(settings =>
+        {
+            if (panel == "folders") settings.FolderPanelWidth = size;
+            else settings.ThumbnailPanelWidth = size;
+        });
     }
 
     // ---------- složky ----------
@@ -191,6 +211,38 @@ public sealed class FotoalbumService : IDisposable
         var last = Db.GetFolder(folder).LastPhoto;
         if (last is not null && !list.Any(d => string.Equals(d.Path, last, StringComparison.OrdinalIgnoreCase))) last = null;
         return new FolderPhotosDto(folder, last, list);
+    }
+
+    public List<ReadingAlbumDto> GetReadingAlbums(CancellationToken ct)
+    {
+        var albums = new List<ReadingAlbumDto>();
+        var intros = Db.GetAlbumIntros();
+        AddAlbum(GetTree());
+        return albums;
+
+        void AddAlbum(FolderDto folder)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (folder.Total > folder.Children.Sum(child => child.Total))
+            {
+                var photos = OpenFolder(folder.Path).Photos.Where(photo => photo.Status != "del").ToList();
+                if (photos.Count > 0)
+                    albums.Add(new ReadingAlbumDto(folder.Path, folder.Name, folder.Kind, intros.GetValueOrDefault(folder.Path) ?? "",
+                        photos.Count(photo => photo.Status is "done" or "manual" or "skip"),
+                        photos.Select(photo => new ReadingPhotoDto(photo.Path, photo.Name, photo.Date, photo.Title,
+                            photo.IsDraft ? "" : photo.Caption, photo.Rotation)).ToList()));
+            }
+            foreach (var child in folder.Children) AddAlbum(child);
+        }
+    }
+
+    public void SetAlbumIntro(string folder, string intro)
+    {
+        var lib = Library;
+        var path = lib.Resolve(folder);
+        if (!Directory.Exists(path)) throw new DirectoryNotFoundException("Složka neexistuje.");
+        if (intro.Length > 12000) throw new ArgumentException("Úvod může mít nejvýše 12 000 znaků.");
+        Db.SetAlbumIntro(lib.ToRelative(path), intro.Trim());
     }
 
     // ---------- fotky ----------

@@ -36,6 +36,7 @@ public sealed record AiModel(string Id, string Name, bool Audio, double? PromptP
 /// <summary>Kontext pro korekturu: co AI o fotce smí vědět (žádná fotka, jen text).</summary>
 public sealed record CaptionContext(string Album, string? Date, IReadOnlyList<string> NeighbourCaptions, string Glossary, string Length);
 
+public sealed record SearchIntent(string[]? Terms, DateOnly? From, DateOnly? To);
 public sealed record ImproveResult(string Caption, string Title, double CostUsd);
 
 public sealed class AiException(string message) : Exception(message);
@@ -223,6 +224,29 @@ public sealed class AiService
         if (c.NeighbourCaptions.Count > 0)
             sb.AppendLine("Popisky sousedních fotek (jen pro návaznost, neopakuj je): " + string.Join(" | ", c.NeighbourCaptions.Select(x => Tail(x, 300))));
         return sb.ToString().TrimEnd();
+    }
+
+    public async Task<SearchIntent?> InterpretSearchAsync(string query, DateOnly today, CancellationToken ct)
+    {
+        var model = await TextModelAsync(ct);
+        const string rules = """
+            Z českého dotazu pro hledání fotek vyber krátká klíčová slova v základním tvaru a místa.
+            Nepřidávej žádná místa ani témata, která v dotazu nejsou. Datum převeď na rozsah od–do včetně.
+            Dnešní datum je v uživatelské zprávě. Zima je prosinec až únor. Chybějící hranice data jsou null.
+            Vrať pouze JSON: {"terms":["safari","Keňa","západ slunce"],"from":null,"to":null}.
+            Hranice mají formát YYYY-MM-DD. Vynech obecné výrazy jako fotka, ukaž mi a kde.
+            """;
+        var (text, _) = await ChatAsync(model, rules,
+            new JsonArray { new JsonObject { ["type"] = "text", ["text"] = $"Dnes: {today:yyyy-MM-dd}\nDotaz: {query}" } }, 0, ct);
+        var start = text.IndexOf('{');
+        var end = text.LastIndexOf('}');
+        if (start < 0 || end <= start) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<SearchIntent>(text[start..(end + 1)],
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (JsonException) { return null; }
     }
 
     private async Task<ImproveResult> EditAsync(string userText, CancellationToken ct)

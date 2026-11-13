@@ -188,16 +188,16 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Svislý pás miniatur: nahoře „Fotka 5 z 486 · vyřízeno …“ a barevný pruh postupu (klepnutím skok), dole „Další nepopsaná“.
 - Písmo je menší než ve verzi 0.3 (test na 15" notebooku); **velikost písma** jde nastavit v Nastavení (⚙): 80–140 %, po 10 %, ukládá se v počítači (zvětší i tlačítka).
 - Náhled: `docs/maketa/pracovna-v2.html`.
-- **Připraveno na příště (zadáno 12. 11. 2026, zatím neimplementováno):** levý panel (složky) i pravý panel (miniatury) půjde **rozšířit / zúžit myší** tažením za okraj (široký, dobře viditelný úchyt). Miniatury vpravo se se šířkou panelu **zvětší**. Zvolené šířky se pamatují v počítači; dvojklik na úchyt vrátí výchozí šířku.
-- **Na příště – čitelný strom při hlubokém vnoření (zadáno 13. 11. 2026, zatím nedělat):** v úzkém panelu se název složky láme po písmenech („tem / p“) a štítek „Dovolená“ s počtem mu bere místo; při mnoha úrovních podsložek by strom byl nečitelný. Řešení:
+- **Nastavitelná šířka panelů:** levý panel (složky) i pravý panel (miniatury) půjde **rozšířit / zúžit myší** tažením za okraj (široký, dobře viditelný úchyt). Miniatury vpravo se se šířkou panelu **zvětší**. Zvolené šířky se pamatují v počítači; dvojklik na úchyt vrátí výchozí šířku.
+- **Čitelný strom při hlubokém vnoření:** v úzkém panelu se název složky láme po písmenech („tem / p“) a štítek „Dovolená“ s počtem mu bere místo; při mnoha úrovních podsložek by strom byl nečitelný. Řešení:
   - název složky se **nikdy nedělí uprostřed slova**; když se nevejde, zkrátí se „…“ a celý se ukáže v bublině po najetí myší (a vždy celý v záhlaví fotky / nad miniaturami),
   - **menší odsazení** každé úrovně (cca 12 px) a tenké svislé vodicí čáry, aby bylo vidět, co pod co patří,
   - štítek „Dovolená“ jen jako **malá ikona** (např. ☀/✈) a počet fotek menším písmem; obojí se při nedostatku místa schová dřív než název,
   - u hluboké cesty **drobečková navigace** nad stromem („Pictures › 2025 › Keňa › Masai Mara“) a sbalení vzdálených větví – rozbalená zůstává jen cesta k aktuální složce,
   - spolu s rozšiřováním panelu myší (viz výše) si děda může strom rozšířit.
-- **Připraveno na příště (12. 11. 2026):** tlačítka **Zpět**, **Znovu** a **Více** se přesunou z řady pod popiskem **úplně nahoru doleva do záhlaví** (hned za název aplikace); **verze programu** (a upozornění na aktualizaci) se přesune **v záhlaví doprava** (vedle ⚙ a „Zavřít program“). V řadě pod popiskem zůstane Předchozí, Další a Bez popisku – další fotka.
+- **Ovládání v záhlaví:** tlačítka **Zpět**, **Znovu** a **Více** se přesunou z řady pod popiskem **úplně nahoru doleva do záhlaví** (hned za název aplikace); **verze programu** (a upozornění na aktualizaci) se přesune **v záhlaví doprava** (vedle ⚙ a „Zavřít program“). V řadě pod popiskem zůstane Předchozí, Další a Bez popisku – další fotka.
 
-### 2.11 Hlavní obrazovka čtení a hlasové vyhledávání (zadáno 13. 11. 2026, plánováno)
+### 2.11 Hlavní obrazovka čtení a hlasové vyhledávání
 **Hlavní obrazovka čtecího režimu:**
 - Výchozí zobrazení: **jen dovolené** (složky se štítkem „Dovolená“) jako **velké dlaždice s titulní fotkou**, názvem a obdobím. Běžné fotky jde zobrazit přepínačem „Ukázat i běžné fotky“.
 - **Vlevo zůstává stromová struktura složek** (stejná jako v Pracovně); klepnutí na složku ukáže její dlaždice / fotky.
@@ -343,9 +343,9 @@ Mají přednost před starším textem této specifikace, kde se liší.
 ### Etapy
 1. **MVP – hotovo** (čeká na vyzkoušení ve Windows): strom složek, miniatury, velká fotka, ruční popisek, automatické ukládání do metadat, označení ke smazání, stavy „bez popisku“ a pokračování (2.5), záloha databáze, lokální server + webové rozhraní.
 2. **Diktování a AI – implementováno, čeká na test se skutečným klíčem:** 🎤 Diktovat (přepis po větách), ✨ Korektura, hlasové úpravy („Diktovat úpravu“ → „Použít úpravu“), nadpis od AI, značka „✍ Jen ruční text“, dotaz při odchodu bez korektury, slovníček, délka popisku, útrata; vše vratné tlačítkem Zpět. Klávesa F2 = diktovat. Diktuje se do pole pod fotkou, „Schválit a další fotka“ (2.10).
-3. Knihovna alb (2.1), úvodní texty, vyhledávání psaním i hlasem (2.11).
+3. **Knihovna alb – implementováno:** úvodní texty, vyhledávání psaním i hlasem (2.1, 2.11).
 4. Staré vepsané popisky: přečtení a odstranění (kap. 7).
-5. Čtecí režim – hlavní obrazovka s dovolenými a vyhledáváním (2.11), obě varianty čtení (2.3), „Pustit na televizi“ (2.3.1) a DLNA server pro TV (2.3.2).
+5. **Čtecí režim – implementováno:** hlavní obrazovka s dovolenými a vyhledáváním (2.11), obě varianty čtení (2.3). Plánováno: „Pustit na televizi“ (2.3.1) a DLNA server pro TV (2.3.2).
 6. Tablet jako druhá obrazovka PC (kap. 9): poslech v domácí síti, párování QR kódem, probuzení PC.
 
 ## 11. Otevřené otázky

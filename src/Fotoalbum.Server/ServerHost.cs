@@ -165,6 +165,30 @@ public static class ServerHost
             return Results.Json(new { folder });
         });
 
+        api.MapPut("/settings/panel", (PanelWidthRequest r) =>
+        {
+            s.SetPanelWidth(r.Panel, r.Width);
+            return Results.Ok();
+        });
+
+        api.MapPut("/reading/layout", (ReadingLayoutRequest r) =>
+        {
+            s.SetReadingLayout(r.Layout);
+            return Results.Ok();
+        });
+
+        api.MapGet("/reading/albums", (CancellationToken ct) => Results.Json(s.GetReadingAlbums(ct)));
+        api.MapPut("/reading/intro", (AlbumIntroRequest r) =>
+        {
+            s.SetAlbumIntro(r.Path, r.Intro ?? "");
+            return Results.Ok();
+        });
+        api.MapPost("/ai/search", async (SearchRequest r, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(r.Query) || r.Query.Length > 500) throw new ArgumentException("Neplatný dotaz.");
+            return Results.Json(await s.Ai.InterpretSearchAsync(r.Query, DateOnly.FromDateTime(DateTime.Today), ct));
+        });
+
         api.MapGet("/tree", () => Results.Json(s.GetTree()));
         api.MapGet("/folder", (string? path) => Results.Json(s.OpenFolder(path ?? "")));
         api.MapPost("/folder/kind", (FolderKindRequest r) => { s.SetFolderKind(r.Path, r.Kind); return Results.Ok(); });
@@ -237,6 +261,10 @@ public static class ServerHost
     }
 }
 
+public sealed record PanelWidthRequest(string Panel, int? Width);
+public sealed record ReadingLayoutRequest(string Layout);
+public sealed record AlbumIntroRequest(string Path, string? Intro);
+public sealed record SearchRequest(string Query);
 public sealed record ChannelRequest(string Channel);
 public sealed record AiSettingsRequest(string? Key, string? TextModel, string? AudioModel, string? Glossary, string? CaptionLength);
 public sealed record TranscribeRequest(string Audio, string? Previous);

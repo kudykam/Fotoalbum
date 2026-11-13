@@ -55,7 +55,7 @@ public sealed record HistoryEntry(long Id, string Caption, bool IsDraft, string 
 /// </summary>
 public sealed class CatalogDb : IDisposable
 {
-    private const int SchemaVersion = 2;
+    private const int SchemaVersion = 3;
     private static readonly TimeSpan HistoryMergeWindow = TimeSpan.FromSeconds(60);
     private readonly SqliteConnection _db;
     private readonly object _lock = new();
@@ -79,6 +79,8 @@ public sealed class CatalogDb : IDisposable
             Exec("ALTER TABLE photos ADD COLUMN caption_source TEXT NOT NULL DEFAULT 'file'");
             Exec("ALTER TABLE photos ADD COLUMN title TEXT NULL");
         }
+        if (version < 3)
+            Exec("CREATE TABLE IF NOT EXISTS album_intros(path TEXT PRIMARY KEY COLLATE NOCASE, intro TEXT NOT NULL)");
         Exec($"PRAGMA user_version={SchemaVersion}");
     }
 
@@ -341,6 +343,28 @@ public sealed class CatalogDb : IDisposable
         {
             using var cmd = Cmd("INSERT INTO folders(path, kind) VALUES($p,$k) ON CONFLICT(path) DO UPDATE SET kind=$k",
                 ("$p", path), ("$k", (object?)kind ?? DBNull.Value));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    public Dictionary<string, string> GetAlbumIntros()
+    {
+        lock (_lock)
+        {
+            using var cmd = Cmd("SELECT path, intro FROM album_intros");
+            using var reader = cmd.ExecuteReader();
+            var intros = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            while (reader.Read()) intros[reader.GetString(0)] = reader.GetString(1);
+            return intros;
+        }
+    }
+
+    public void SetAlbumIntro(string path, string intro)
+    {
+        lock (_lock)
+        {
+            using var cmd = Cmd("INSERT INTO album_intros(path, intro) VALUES($p,$i) ON CONFLICT(path) DO UPDATE SET intro=$i",
+                ("$p", path), ("$i", intro));
             cmd.ExecuteNonQuery();
         }
     }
