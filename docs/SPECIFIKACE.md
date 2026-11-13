@@ -223,6 +223,26 @@ Mají přednost před starším textem této specifikace, kde se liší.
 - Popisek je vidět vždy (vedle fotky jako kniha, nebo v poloprůhledném pruhu přes fotku); šipky ← → listují.
 - Úvod alba se upravuje v Čtení na úvodní stránce alba („Upravit úvod alba“).
 
+### 2.14 Strom, dovolené, filtry a rychlé Čtení (rozhodnuto 13. 11. 2026, verze 0.4.0-test.5)
+Mají přednost před starším textem (2.7, 2.11, 2.12, 2.13), kde se liší.
+
+**Záhlaví:** vlevo název a záložky **Pracovna | Čtení** (ve Čtení vedle nich vyhledávání); vpravo **Zpět, Znovu, Více**, verze, ⚙ a Zavřít program.
+
+**Strom složek (Pracovna i Čtení stejný):**
+- Složky označené jako dovolená jsou **tučně a mají ikonu palmy** místo ikony složky.
+- Dovolená se nastavuje **pravým tlačítkem na složce** („🌴 Označit jako dovolenou“ / „Zrušit označení dovolené“). Zaškrtávátko „Tato složka je z dovolené“ i filtr „Ukázat jen dovolené“ se ruší.
+- **Platí jen pro tu jednu složku** – podsložky druh nedědí (dřívější dědění se ruší).
+- Počet u složky = **vyřízené / všechny fotky přímo v této složce** (bez podsložek); složka bez vlastních fotek počet nemá.
+- Pod stromem: přepínač fotek **Vše / Nepopsané / Popsané** (jen Pracovna; „Bez popisku“ se počítá k popsaným, k nepopsaným patří prázdné a rozepsané) a **Řadit složky: název / nejnovější / nejstarší** (podle data nejstarší fotky; řadí strom i dlaždice ve Čtení; pamatuje se v počítači).
+
+**Fotky složky:** složka ukazuje **jen své vlastní fotky**; fotky podsložky se zobrazí až po klepnutí na podsložku. **Označit složku jako hotovou** (pravé tlačítko) a zelená fajfka platí jen pro vlastní fotky složky.
+
+**Čtení:**
+- Hlavní stránka: uprostřed velké dlaždice **jen složek označených jako dovolená** (titulní fotka, název, období, počet fotek). Načítají se **jen z databáze**, takže se ukážou okamžitě i u velké knihovny (dřív program při otevření Čtení četl všechny fotky celé knihovny a dlouho „načítal“).
+- Klepnutí na dlaždici **i na jakoukoli složku ve stromu** rovnou otevře čtení na celé okno (fotka s popiskem). Album = fotky složky a za nimi fotky jejích podsložek. Fotky alba se načtou až při otevření; u velkého alba poprvé chvíli trvá („Načítám fotky alba…“).
+- **Vyhledávání v celé knihovně:** program po startu **pomalu na pozadí prochází všechny složky** (čte data a popisky z fotek) a po dokončení to za 30 minut zopakuje (nové fotky z karty). Dokud neprojde vše, ukazuje se u hledání „Připravuji vyhledávání: prošlo X z Y fotek“ a hledá se jen v prošlých fotkách.
+- Ve výsledcích: nalezená alba (podle názvu, úvodu nebo data) a nalezené fotky (podle nadpisu, popisku, data); fotky alba nalezeného podle názvu se samostatně neopakují.
+
 ### 2.8 Automatické aktualizace (schváleno 12. 11. 2026)
 - Zdroj: **GitHub Releases** repozitáře (veřejné, bez přihlášení). Nástroj **Velopack** (MIT): instalace do profilu uživatele bez práv správce, rozdílové aktualizace, kontrola celistvosti.
 - **Dva kanály:**

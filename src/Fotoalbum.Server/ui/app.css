@@ -51,7 +51,7 @@ body.resizing{user-select:none;cursor:col-resize}
 .work-actions,.view-tabs,.search{display:flex;align-items:center;gap:6px}
 .bar .b{width:auto;min-height:38px;padding:4px 10px;white-space:nowrap}
 .bar .work-actions .b svg{width:18px;height:18px}
-.bar .menu{top:calc(100% + 8px);bottom:auto;left:0;right:auto;z-index:10}
+.bar .menu{top:calc(100% + 8px);bottom:auto;left:auto;right:0;z-index:10}
 .view-tabs{align-items:stretch;gap:2px;margin-left:4px;padding-left:12px;border-left:1px solid var(--line)}
 .view-tabs button{min-height:42px;padding:7px 12px 5px;border:0;border-bottom:3px solid var(--line);border-radius:7px 7px 0 0;background:transparent;color:var(--muted);font-weight:700;cursor:pointer}
 .view-tabs button:hover{background:var(--side);color:var(--ink)}
@@ -107,7 +107,7 @@ body.resizing{user-select:none;cursor:col-resize}
 .node svg{width:19px;height:19px;flex:none}
 .node{min-width:0;gap:5px}
 .node .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@container (max-width:240px){.node .cnt{display:none}}
+@container (max-width:190px){.node .cnt{display:none}}
 @container (max-width:185px){.node .tag{display:none}}
 @container (max-width:130px){.node svg{display:none}}
 .node .cnt{font-size:12px;font-variant-numeric:tabular-nums;opacity:.85;white-space:nowrap}
@@ -283,7 +283,7 @@ kbd{font-family:var(--ui);font-size:13px;border:1px solid var(--line);border-bot
 
 /* Knihovna a čtení */
 .library{min-width:0;min-height:0;overflow:auto;padding:clamp(12px,2vw,28px)}
-.browse .filters{display:none}
+.browse .photo-filter{display:none}
 .library-head,.reader-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .library-head h1{margin:0 auto 0 0}
 .library .b{width:auto}
@@ -330,3 +330,23 @@ kbd{font-family:var(--ui);font-size:13px;border:1px solid var(--line);border-bot
 .app.reading-full .reader-page:not(.overlay),.reader:fullscreen .reader-page:not(.overlay){grid-template-columns:minmax(0,1.7fr) minmax(320px,1fr)}
 .reader-page.overlay .reader-image{position:absolute;inset:0}
 .reader-page.overlay .reader-image img{position:absolute;inset:0;width:100%;height:100%;max-height:none;object-fit:contain}
+
+/* strom: dovolená tučně s palmou; počet jen vlastních fotek */
+.node.vacation{font-weight:700}
+.node .palm{color:var(--warn);stroke-width:2.2}
+.node[aria-current="true"] .palm{color:var(--accent-ink)}
+/* filtr fotek a řazení pod stromem */
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 4px;font-size:14px;cursor:pointer;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.sortrow{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);padding:6px 2px 0}
+.sortrow select{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:5px 6px;font-size:14px;color:var(--ink)}
+.hintline{font-size:12px;color:var(--muted);padding:2px}
+.folder-menu{display:grid;gap:4px;min-width:250px}
+.folder-menu .b{justify-content:flex-start;min-height:40px;font-size:15px;width:100%}
+.folder-menu small{font-size:12px;color:var(--muted);padding:2px 6px 4px}
+.index-note{font-size:14px;color:var(--muted);margin:-8px 0 14px}
+.reader-loading{display:grid;place-items:center;gap:12px;flex:1;color:var(--muted);font-size:18px;min-height:200px}
+.album-card .nocover{display:grid;place-items:center;height:100%;color:#9fb0a7;font-size:40px}
+.album-card strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}

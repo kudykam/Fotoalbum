@@ -267,7 +267,7 @@ public class FotoalbumServiceTests
     }
 
     [Fact]
-    public void Druh_slozky_se_dedi_a_strom_pocita_vyrizene()
+    public void Druh_slozky_a_strom_pocita_vyrizene()
     {
         var (t, s) = Setup();
         using (t) using (s)
@@ -284,6 +284,64 @@ public class FotoalbumServiceTests
             Assert.Equal(FolderKind.Vacation, afrika.Kind);
             Assert.False(s.OpenFolder("Doma").Photos.Single().Vacation);
             Assert.True(s.OpenFolder("Afrika").Photos.First().Vacation);
+        }
+    }
+
+    [Fact]
+    public void Dovolena_plati_jen_pro_jednu_slozku_a_strom_pocita_vlastni_fotky()
+    {
+        var (t, s) = Setup();
+        using (t) using (s)
+        {
+            TestImages.Create(System.IO.Path.Combine(s.Library.Root, "Afrika", "Kena", "K1.jpg"));
+            s.SetFolderKind("Afrika", FolderKind.Vacation);
+            s.OpenFolder("Afrika");
+            s.SetFlags("Afrika/IMG_1.jpg", true, null, null);
+            var afrika = s.GetTree().Children.Single(c => c.Name == "Afrika");
+            var kena = afrika.Children.Single();
+            Assert.Equal(FolderKind.Everyday, kena.Kind);           // podsložka druh nedědí
+            Assert.False(s.OpenFolder("Afrika/Kena").Photos.Single().Vacation);
+            Assert.Equal((2, 2, 3), (afrika.OwnTotal, afrika.OwnHandled, afrika.Total));
+            Assert.True(afrika.Complete);                            // hotová jen podle vlastních fotek
+            Assert.False(kena.Complete);
+            Assert.Equal("1998-07-14", afrika.First?[..10]);
+        }
+    }
+
+    [Fact]
+    public void Cteni_ukaze_jen_dovolene_bez_cteni_souboru_a_album_vcetne_podslozek()
+    {
+        var (t, s) = Setup();
+        using (t) using (s)
+        {
+            TestImages.Create(System.IO.Path.Combine(s.Library.Root, "Afrika", "Kena", "K1.jpg"));
+            s.SetFolderKind("Afrika", FolderKind.Vacation);
+            var albums = s.GetReadingAlbums();
+            var a = Assert.Single(albums);
+            Assert.Equal(("Afrika", 3), (a.Path, a.Count));
+            // dlaždice se skládá jen z databáze – fotky se při tom nečtou
+            Assert.DoesNotContain(s.Db.GetPhotos(["Afrika/IMG_1.jpg", "Afrika/IMG_2.jpg"]).Values, r => r.Imported);
+
+            var album = s.GetReadingAlbum("Afrika", default);
+            Assert.Equal(["Afrika/IMG_2.jpg", "Afrika/IMG_1.jpg", "Afrika/Kena/K1.jpg"], album.Photos.Select(p => p.Path));
+            Assert.Equal("Popisek z jiného programu", album.Photos[0].Caption);
+            Assert.Equal("1998-07-14", s.GetReadingAlbums().Single().From?[..10]);
+        }
+    }
+
+    [Fact]
+    public async Task Prochazeni_na_pozadi_pripravi_vyhledavani()
+    {
+        var (t, s) = Setup();
+        using (t) using (s)
+        {
+            Assert.Empty(s.GetSearchIndex().Photos);
+            await s.IndexOnceAsync(TimeSpan.Zero, default);
+            Assert.Equal((3, 3, false), (s.IndexStatus.Indexed, s.IndexStatus.Total, s.IndexStatus.Running));
+            var index = s.GetSearchIndex();
+            Assert.Equal(3, index.Photos.Count);
+            Assert.Contains(index.Photos, p => p.Caption == "Popisek z jiného programu");
+            Assert.Contains(index.Folders, f => f.Name == "Doma");
         }
     }
 

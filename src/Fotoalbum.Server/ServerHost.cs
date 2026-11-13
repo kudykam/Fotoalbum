@@ -11,6 +11,8 @@ public sealed class ServerOptions
     /// <summary>Adresa serveru. Výchozí je jen tento počítač na volném portu.</summary>
     public string Url { get; set; } = "http://127.0.0.1:0";
     public string? DataDir { get; set; }
+    /// <summary>Za jak dlouho po startu začne procházení knihovny pro vyhledávání.</summary>
+    public TimeSpan IndexStartDelay { get; set; } = TimeSpan.FromSeconds(20);
     public Func<string, IRecycleBin>? RecycleBinFactory { get; set; }
     /// <summary>Výběr složky dialogem Windows (jen v desktopové aplikaci).</summary>
     public Func<Task<string?>>? PickFolder { get; set; }
@@ -48,8 +50,12 @@ public sealed class RunningServer : IAsyncDisposable
     public event Action? QuitRequested;
     internal void RaiseQuit() => QuitRequested?.Invoke();
 
+    /// <summary>Zastaví procházení knihovny na pozadí.</summary>
+    internal CancellationTokenSource Background { get; } = new();
+
     public async ValueTask DisposeAsync()
     {
+        Background.Cancel();
         await App.StopAsync();
         await App.DisposeAsync();
         Service.Dispose();
@@ -125,6 +131,8 @@ public static class ServerHost
 
         MapApi(app, running, options);
         await app.StartAsync();
+        // pomalé procházení knihovny pro vyhledávání (začne chvíli po startu, mezi složkami pauza)
+        _ = Task.Run(() => running.Service.RunIndexerAsync(options.IndexStartDelay, TimeSpan.FromSeconds(1), running.Background.Token));
         return running;
     }
 
@@ -177,7 +185,10 @@ public static class ServerHost
             return Results.Ok();
         });
 
-        api.MapGet("/reading/albums", (CancellationToken ct) => Results.Json(s.GetReadingAlbums(ct)));
+        api.MapGet("/reading/albums", () => Results.Json(s.GetReadingAlbums()));
+        api.MapGet("/reading/album", (string? path, CancellationToken ct) => Results.Json(s.GetReadingAlbum(path ?? "", ct)));
+        api.MapGet("/search/index", () => Results.Json(s.GetSearchIndex()));
+        api.MapGet("/index/status", () => Results.Json(s.IndexStatus));
         api.MapPut("/reading/intro", (AlbumIntroRequest r) =>
         {
             s.SetAlbumIntro(r.Path, r.Intro ?? "");

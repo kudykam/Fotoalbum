@@ -6,7 +6,9 @@ const $ = id => document.getElementById(id);
 const S = {
   state: null, host: "web", canPick: false,
   tree: null, open: new Set([""]), browseOpen: new Set([""]), view: "work", folder: null, photos: [], cur: null,
-  fUndone: false, onlyVacation: false, side: true, menu: false,
+  photoFilter: "all",     // Vše / Nepopsané / Popsané (jen v Pracovně)
+  sort: (() => { try { return localStorage.getItem("fotoalbum-razeni") || "name"; } catch { return "name"; } })(),
+  side: true, menu: false,
   keep: new Set(),        // fotky vyřízené během zapnutého filtru – zůstanou vidět do přepnutí filtru
   saved: "",              // uložený popisek aktuální fotky
   busy: false, closed: false,
@@ -207,7 +209,13 @@ function firstFolderWithPhotos(n) {
 }
 function findNode(n, path) { if (!n) return null; if (n.path === path) return n; for (const c of n.children) { const f = findNode(c, path); if (f) return f; } return null; }
 function ownCount(f) { return f.total - f.children.reduce((a, c) => a + c.total, 0); }
-function hasVacation(f) { return f.kind === "dovolena" || f.children.some(hasVacation); }
+/** Řazení složek ve stromu i dlaždic ve Čtení: podle názvu, od nejnovějších, od nejstarších. */
+function sortFolders(list, nameOf = f => f.name, dateOf = f => f.first) {
+  const byName = (a, b) => (nameOf(a) || "").localeCompare(nameOf(b) || "", "cs", { numeric: true });
+  const byDate = (a, b) => (dateOf(a) || "9999").localeCompare(dateOf(b) || "9999") || byName(a, b);
+  return [...list].sort(S.sort === "old" ? byDate : S.sort === "new" ? (a, b) => (dateOf(b) || "").localeCompare(dateOf(a) || "") || byName(a, b) : byName);
+}
+const ICON_PALM = '<svg class="palm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c0-5 .5-8 1.5-11"/><path d="M13.5 10c-1.5-3-4.5-4-8-3 2.5.2 4.5 1.3 5.5 3"/><path d="M13.5 10c1-3 4-5 7.5-4.5-2.5.6-4.5 2-5.5 4"/><path d="M13.5 10c3-.5 6 .8 7.5 3.5-2.5-1.2-5-1.5-7.5-1"/><path d="M13.5 10c-3 .2-5.5 2-6.5 5 1.5-1.8 3.8-3 6.5-3.5"/><path d="M7 21h10"/></svg>';
 function expandTo(path, expanded, includeFolder = false) {
   const parts = path.split("/");
   expanded.clear();
@@ -220,13 +228,13 @@ function renderTree() {
   const scrollTop = el.scrollTop;
   el.replaceChildren(); crumbs.replaceChildren();
   if (!S.tree) return;
+  // strom je ve Čtení stejný jako v Pracovně; klepnutí ve Čtení rovnou otevře čtení složky
   const browse = S.view !== "work";
-  const selected = browse ? B.folder : S.folder;
-  const expanded = browse ? S.browseOpen : S.open;
-  const onlyVacation = browse ? S.view === "reading" && !B.everyday : S.onlyVacation;
-  const shown = f => !onlyVacation || hasVacation(f);
+  const selected = browse ? (B.reader ? B.reader.album.path : null) : S.folder;
+  const expanded = S.open;
+  const shown = () => true;
   const choose = path => {
-    if (browse) chooseBrowseFolder(path);
+    if (browse) { const f = findNode(S.tree, path); if (f && f.total) openReader({ path, name: f.name || S.tree.name, intro: "" }); }
     else openFolder(path).catch(fail);
   };
   const nodes = ownCount(S.tree) > 0 || !S.tree.children.length ? [S.tree] : S.tree.children;
@@ -235,7 +243,7 @@ function renderTree() {
     const li = document.createElement("li");
     const row = document.createElement("div");
     row.className = "tree-line";
-    const kids = f.children.filter(shown);
+    const kids = sortFolders(f.children.filter(shown));
     if (kids.length) {
       const toggle = document.createElement("button");
       toggle.type = "button";
@@ -253,19 +261,18 @@ function renderTree() {
       row.append(toggle);
     }
     const b = document.createElement("button");
-    b.className = "node";
-    b.title = f.name || "Všechny fotky";
+    const vacation = f.kind === "dovolena";
+    b.className = "node" + (vacation ? " vacation" : "");
+    b.title = (f.name || "Všechny fotky") + (vacation ? " – dovolená" : "") + (f.ownTotal ? "" : " (fotky jsou jen v podsložkách)");
     b.setAttribute("aria-current", selected === f.path);
-    b.innerHTML = ico.folder + `<span class="nm">${esc(b.title)}</span>`
-      + (f.kind === "dovolena" && !f.kindInherited ? '<span class="tag" title="Dovolená" aria-label="Dovolená">☀</span>' : "")
+    // počet = jen fotky přímo v této složce (podsložky mají vlastní)
+    b.innerHTML = (vacation ? ICON_PALM : ico.folder) + `<span class="nm">${esc(f.name || "Všechny fotky")}</span>`
       + (f.complete ? '<span class="folder-complete" title="Složka hotová" aria-label="Složka hotová">✓</span>' : "")
-      + `<span class="cnt" title="Vyřízené fotky">${f.handled}/${f.total}</span>`;
-    if (!browse && ownCount(f) > 0 && !f.complete) {
-      b.oncontextmenu = event => {
-        event.preventDefault();
-        if (!S.busy && !$("modalHost").firstChild) showFolderMenu(event, f, b);
-      };
-    }
+      + (f.ownTotal ? `<span class="cnt" title="Vyřízené fotky přímo v této složce">${f.ownHandled}/${f.ownTotal}</span>` : "");
+    b.oncontextmenu = event => {
+      event.preventDefault();
+      if (!S.busy && !$("modalHost").firstChild) showFolderMenu(event, f, b);
+    };
     b.onclick = () => choose(f.path);
     row.append(b); li.append(row);
     if (kids.length && expanded.has(f.path)) {
@@ -275,7 +282,7 @@ function renderTree() {
     }
     host.append(li);
   };
-  nodes.forEach(n => mk(n, el));
+  sortFolders(nodes).forEach(n => mk(n, el));
   if (!el.children.length) el.innerHTML = '<li class="treeempty">Žádná složka se zvoleným filtrem.</li>';
   const parts = selected ? selected.split("/") : [];
   crumbs.hidden = browse || selected == null;
@@ -299,24 +306,39 @@ function renderTree() {
       crumbs.append(item);
     });
   }
-  if (!browse) renderKindRow();
   el.scrollTop = scrollTop;
 }
 
+/** Nabídka pravého tlačítka na složce: dovolená ano/ne, v Pracovně i „Označit složku jako hotovou“. */
 function showFolderMenu(event, folder, anchor) {
   const menu = $("folderMenu");
-  const button = menu.firstElementChild;
+  const vacation = folder.kind === "dovolena";
+  const items = [[vacation ? "Zrušit označení dovolené" : "🌴 Označit jako dovolenou", () => setFolderKind(folder.path, vacation ? "bezne" : "dovolena")]];
+  if (S.view === "work" && folder.ownTotal > 0 && !folder.complete)
+    items.push(["✓ Označit složku jako hotovou", () => changeFolderCompletion(folder.path)]);
+  menu.replaceChildren(...items.map(([label, fn]) => {
+    const button = document.createElement("button");
+    button.type = "button"; button.className = "b"; button.textContent = label;
+    button.onclick = () => { menu.hidden = true; anchor.focus({ preventScroll: true }); Promise.resolve(fn()).catch(fail); };
+    return button;
+  }));
+  const note = document.createElement("small");
+  note.textContent = "Platí jen pro tuto složku, ne pro podsložky.";
+  menu.append(note);
   menu.hidden = false;
   const rect = anchor.getBoundingClientRect();
   const x = event.clientX || rect.left, y = event.clientY || rect.bottom;
   menu.style.left = Math.max(0, Math.min(x, window.innerWidth - menu.offsetWidth)) + "px";
   menu.style.top = Math.max(0, Math.min(y, window.innerHeight - menu.offsetHeight)) + "px";
-  button.onclick = () => {
-    menu.hidden = true;
-    anchor.focus({ preventScroll: true });
-    changeFolderCompletion(folder.path).catch(fail);
-  };
-  button.focus({ preventScroll: true });
+  menu.firstElementChild.focus({ preventScroll: true });
+}
+/** Označí / odznačí složku jako dovolenou (jen tuto složku). */
+async function setFolderKind(path, kind) {
+  await api("POST", "/api/folder/kind", { path, kind });
+  await loadTree();
+  if (S.view === "work" && S.folder != null) await refreshFolderMeta();
+  else if (S.view !== "work") loadAlbums();
+  toast(kind === "dovolena" ? "Složka je označená jako dovolená." : "Označení dovolené zrušeno.");
 }
 
 async function changeFolderCompletion(path, undoBatch = null) {
@@ -361,15 +383,6 @@ async function changeFolderCompletion(path, undoBatch = null) {
     toast("Ve složce nejsou fotky k označení.");
   }
 }
-function renderKindRow() {
-  const n = S.folder != null ? findNode(S.tree, S.folder) : null; const el = $("kindRow");
-  if (!n) { el.innerHTML = ""; return; }
-  el.innerHTML = `<label class="toggle"><input type="checkbox" id="kindVac" ${n.kind === "dovolena" ? "checked" : ""}> Tato složka je z dovolené</label>`;
-  $("kindVac").onchange = async e => {
-    try { await api("POST", "/api/folder/kind", { path: S.folder, kind: e.target.checked ? "dovolena" : "bezne" }); await refreshFolderMeta(); }
-    catch (err) { fail(err); }
-  };
-}
 async function refreshFolderMeta() {
   await loadTree();
   const r = await api("GET", "/api/folder?path=" + q(S.folder));
@@ -402,7 +415,8 @@ async function openFolder(path, initial) {
   } catch (e) { fail(e); } finally { $("loading").hidden = true; }
 }
 function visible() {
-  return S.photos.filter(p => !(S.fUndone && handled(p) && !S.keep.has(p.path)));
+  const hide = p => S.photoFilter === "undone" ? handled(p) : S.photoFilter === "done" ? !handled(p) : false;
+  return S.photos.filter(p => !hide(p) || S.keep.has(p.path));
 }
 function cur() { const v = visible(); if (!S.cur || !v.includes(S.cur)) { S.cur = v[0] || null; S.saved = S.cur ? S.cur.caption : ""; } return S.cur; }
 const byPath = path => S.photos.find(p => p.path === path);
@@ -455,7 +469,7 @@ async function saveCaption(p, text, source, title, raw) {
   const d = await api("PUT", "/api/photo/caption", { path: p.path, caption: text, isDraft: false, source: source || "manual", title: title || null, raw: raw ?? null });
   Object.assign(p, d);
   if (S.cur === p) S.saved = d.caption;
-  if (S.fUndone && handled(p)) S.keep.add(p.path);
+  if (S.photoFilter !== "all") S.keep.add(p.path); // změněná fotka nezmizí hned pod rukama
   pollWrite(p);
   return d;
 }
@@ -616,10 +630,10 @@ function renderStage(newPhoto) {
   if (!p) {
     img.hidden = true; $("meta").innerHTML = "";
     const e = document.createElement("div"); e.className = "empty";
-    e.innerHTML = S.photos.length ? 'V této složce je všechno vyřízené.<button class="b small solid" id="showAll">Ukázat všechny fotky</button>'
+    e.innerHTML = S.photos.length ? `Ve složce nejsou žádné ${S.photoFilter === "done" ? "popsané" : "nepopsané"} fotky.<button class="b small solid" id="showAll">Ukázat všechny fotky</button>`
       : "V této složce nejsou žádné fotky. Vyberte jinou složku vlevo.";
     st.append(e);
-    const b = $("showAll"); if (b) b.onclick = () => { S.fUndone = false; $("fUndone").checked = false; S.keep.clear(); stripKey = ""; renderAll(true); };
+    const b = $("showAll"); if (b) b.onclick = () => { setPhotoFilter("all"); stripKey = ""; renderAll(true); };
     return;
   }
   img.hidden = false;
@@ -712,7 +726,7 @@ async function setFlags(after, before, then) {
   await run(async () => {
     await commit();
     Object.assign(p, await api("POST", "/api/photo/flags", { path: p.path, ...after }));
-    if (S.fUndone && handled(p)) S.keep.add(p.path);
+    if (S.photoFilter !== "all") S.keep.add(p.path);
     record({ t: "flags", path: p.path, before, after });
     if (then) await then();
   });
@@ -1067,8 +1081,19 @@ $("tree").addEventListener("scroll", () => { $("folderMenu").hidden = true; });
 $("closeBtn").onclick = requestClose;
 $("gearBtn").onclick = () => { if (S.state && S.state.configured) openSettings(); };
 $("sideBtn").onclick = () => { S.side = !S.side; $("work").classList.toggle("nosidebar", !S.side); requestAnimationFrame(() => { fitImage(); drawTrack(); }); };
-$("fUndone").onchange = e => { S.fUndone = e.target.checked; S.keep.clear(); stripKey = ""; renderAll(true); };
-$("fVac").onchange = e => { S.onlyVacation = e.target.checked; renderTree(); };
+function setPhotoFilter(value) {
+  S.photoFilter = value; S.keep.clear(); stripKey = "";
+  document.querySelectorAll("#photoFilter button").forEach(b => b.setAttribute("aria-pressed", b.dataset.f === value));
+  renderAll(true);
+}
+document.querySelectorAll("#photoFilter button").forEach(b => b.onclick = () => setPhotoFilter(b.dataset.f));
+$("folderSort").value = S.sort;
+$("folderSort").onchange = e => {
+  S.sort = e.target.value;
+  try { localStorage.setItem("fotoalbum-razeni", S.sort); } catch { }
+  renderTree();
+  if (S.view !== "work" && !B.reader) renderLibrary();
+};
 $("ta").addEventListener("input", () => {
   if (!S.cur) return;
   draftSave(S.cur.path, $("ta").value); // jen pojistka pro nečekané zavření, neukládá se do fotky
