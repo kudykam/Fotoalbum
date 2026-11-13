@@ -6,7 +6,9 @@ public sealed record StateDto(bool Configured, string? Root, string? RootName, b
     string? LastFolder, int PendingWrites, string? Problem, bool AutoImport, int TextSize, int? FolderPanelWidth = null, int? ThumbnailPanelWidth = null, string? ReadingLayout = null);
 
 public sealed record FolderDto(string Path, string Name, string Kind, bool KindInherited, int Total, int Handled, int Done,
-    List<FolderDto> Children);
+    List<FolderDto> Children, bool Complete);
+
+public sealed record FolderCompletionDto(string Batch, List<string> Paths, List<PhotoDto>? Photos);
 
 public sealed record PhotoDto(string Path, string Name, string? Date, string Status, string Caption, bool IsDraft,
     int Rotation, bool Vacation, string? Title, bool WritePending, string? WriteError, string Source, string? Raw);
@@ -156,7 +158,7 @@ public sealed class FotoalbumService : IDisposable
                 else if (st == PhotoStatus.Skip) handled++;
             }
             return new FolderDto(n.Path, n.Name, kind, own is null, total + children.Sum(c => c.Total),
-                handled + children.Sum(c => c.Handled), done + children.Sum(c => c.Done), children);
+                handled + children.Sum(c => c.Handled), done + children.Sum(c => c.Done), children, total > 0 && handled == total);
         }
     }
 
@@ -177,6 +179,20 @@ public sealed class FotoalbumService : IDisposable
     {
         Library.Resolve(folder);
         Db.SetFolderKind(folder, FolderKind.Normalize(kind));
+    }
+
+    public FolderCompletionDto CompleteFolder(string folder, string? undoBatch)
+    {
+        // Před označením načti i starší popisky uložené jen v souborech.
+        var photos = undoBatch is null ? OpenFolder(folder).Photos : null;
+        var paths = photos?.Select(photo => photo.Path).ToList() ?? Library.ListPhotos(folder);
+        var (batch, changed) = Db.SetFolderSkipped(paths, undoBatch);
+        if (photos is not null)
+        {
+            var skipped = new HashSet<string>(changed, StringComparer.OrdinalIgnoreCase);
+            photos = photos.Select(photo => skipped.Contains(photo.Path) ? photo with { Status = "skip" } : photo).ToList();
+        }
+        return new FolderCompletionDto(batch, changed, photos);
     }
 
     /// <summary>Otevře složku: načte popisky a data ze souborů, které ještě neznáme nebo se změnily.</summary>

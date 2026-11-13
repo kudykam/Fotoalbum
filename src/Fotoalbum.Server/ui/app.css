@@ -109,6 +109,9 @@ body.resizing{user-select:none;cursor:col-resize}
 .node .cnt{font-size:12px;font-variant-numeric:tabular-nums;opacity:.85;white-space:nowrap}
 .tag{font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px;background:var(--warn-soft);color:var(--warn);white-space:nowrap}
 .node[aria-current="true"] .tag{background:var(--accent-ink);color:var(--accent)}
+.folder-complete{flex:none;font-weight:700;color:var(--accent)}
+.node[aria-current="true"] .folder-complete{color:var(--accent-ink)}
+.folder-menu{position:fixed;z-index:20;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--side);box-shadow:var(--shadow)}
 .treeempty{color:var(--muted);font-size:15px;padding:10px}
 .filters{border-top:1px solid var(--line);padding:8px 10px 10px;display:grid;gap:2px}
 .kindrow{border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:2px}

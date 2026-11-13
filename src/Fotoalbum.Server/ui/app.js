@@ -217,6 +217,7 @@ function expandTo(path, expanded, includeFolder = false) {
 function renderTree() {
   const el = $("tree");
   const crumbs = $("crumbs");
+  const scrollTop = el.scrollTop;
   el.replaceChildren(); crumbs.replaceChildren();
   if (!S.tree) return;
   const browse = S.view !== "work";
@@ -257,7 +258,14 @@ function renderTree() {
     b.setAttribute("aria-current", selected === f.path);
     b.innerHTML = ico.folder + `<span class="nm">${esc(b.title)}</span>`
       + (f.kind === "dovolena" && !f.kindInherited ? '<span class="tag" title="Dovolená" aria-label="Dovolená">☀</span>' : "")
+      + (f.complete ? '<span class="folder-complete" title="Složka hotová" aria-label="Složka hotová">✓</span>' : "")
       + `<span class="cnt" title="Vyřízené fotky">${f.handled}/${f.total}</span>`;
+    if (!browse && ownCount(f) > 0 && !f.complete) {
+      b.oncontextmenu = event => {
+        event.preventDefault();
+        if (!S.busy && !$("modalHost").firstChild) showFolderMenu(event, f, b);
+      };
+    }
     b.onclick = () => choose(f.path);
     row.append(b); li.append(row);
     if (kids.length && expanded.has(f.path)) {
@@ -285,6 +293,66 @@ function renderTree() {
     crumbs.scrollLeft = crumbs.scrollWidth;
   }
   if (!browse) renderKindRow();
+  el.scrollTop = scrollTop;
+}
+
+function showFolderMenu(event, folder, anchor) {
+  const menu = $("folderMenu");
+  const button = menu.firstElementChild;
+  menu.hidden = false;
+  const rect = anchor.getBoundingClientRect();
+  const x = event.clientX || rect.left, y = event.clientY || rect.bottom;
+  menu.style.left = Math.max(0, Math.min(x, window.innerWidth - menu.offsetWidth)) + "px";
+  menu.style.top = Math.max(0, Math.min(y, window.innerHeight - menu.offsetHeight)) + "px";
+  button.onclick = () => {
+    menu.hidden = true;
+    anchor.focus({ preventScroll: true });
+    changeFolderCompletion(folder.path).catch(fail);
+  };
+  button.focus({ preventScroll: true });
+}
+
+async function changeFolderCompletion(path, undoBatch = null) {
+  if (S.busy || S.view !== "work") return;
+  if (path === S.folder && !(await guardLeave())) return;
+  if (S.busy) return;
+  S.busy = true;
+  renderButtons();
+  let result;
+  const textarea = $("ta");
+  textarea.readOnly = true;
+  try {
+    if (path === S.folder) await commit();
+    toast(undoBatch ? "Vracím označení fotek…" : "Označuji složku jako hotovou…");
+    result = await api("POST", "/api/folder/complete", { path, undoBatch });
+    if (path === S.folder) {
+      const changed = new Set(result.paths);
+      const updated = new Map((result.photos || []).map(photo => [photo.path, photo]));
+      const before = S.cur, previousCaption = S.saved;
+      for (const photo of S.photos) {
+        if (updated.has(photo.path)) Object.assign(photo, updated.get(photo.path));
+        if (changed.has(photo.path)) {
+          if (undoBatch) photo.status = "none";
+          S.keep.delete(photo.path);
+        }
+      }
+      S.saved = cur()?.caption || "";
+      renderAll(before !== S.cur || previousCaption !== S.saved);
+    }
+  } finally {
+    textarea.readOnly = false;
+    S.busy = false;
+    renderButtons();
+  }
+  loadTree().catch(fail);
+  if (undoBatch) {
+    toast(`Vráceno u ${result.paths.length} fotek.`);
+  } else if (result.paths.length) {
+    toast(`Bez popisku označeno ${result.paths.length} fotek.`,
+      { label: "Vrátit označení", fn: () => changeFolderCompletion(path, result.batch).catch(fail) }, 15000);
+  } else {
+    toast("Ve složce nejsou fotky k označení.");
+  }
 }
 function renderKindRow() {
   const n = S.folder != null ? findNode(S.tree, S.folder) : null; const el = $("kindRow");
@@ -305,6 +373,7 @@ async function refreshFolderMeta() {
 
 /* ---------- složka a fotky ---------- */
 async function openFolder(path, initial) {
+  if (S.busy) return;
   if (!initial) { if (!(await guardLeave())) return; await commit(); closeMenu(); }
   if (S.cur) api("POST", "/api/photo/leave", { folder: S.folder, path: S.cur.path }).catch(() => {});
   S.folder = path; expandTo(path, S.open, true); renderTree();
@@ -435,21 +504,64 @@ function nextUndone() {
 }
 
 /* ---------- vykreslení ---------- */
-function renderAll(newPhoto) { renderStrip(); renderStage(newPhoto); renderCaption(newPhoto); renderButtons(); }
+function renderAll(newPhoto) { renderStrip(newPhoto); renderStage(newPhoto); renderCaption(newPhoto); renderButtons(); }
 
 let stripKey = "", stripMap = new Map(), io = null;
+const railVisible = new Set(), railPending = new Map();
+const railLoadLimit = 4;
+
+function loadVisibleThumbnails() {
+  for (const button of railVisible) {
+    if (railPending.size >= railLoadLimit) break;
+    const img = button.firstElementChild;
+    if (img.hasAttribute("src") || img.dataset.failed || railPending.has(button)) continue;
+    const controller = new AbortController();
+    railPending.set(button, controller);
+    fetch(img.dataset.src, { signal: controller.signal }).then(response => {
+      if (!response.ok) throw new Error("Náhled se nepodařilo načíst.");
+      return response.blob();
+    }).then(blob => {
+      if (controller.signal.aborted) return;
+      const url = URL.createObjectURL(blob);
+      img.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
+      img.addEventListener("error", () => URL.revokeObjectURL(url), { once: true });
+      img.src = url;
+    }).catch(() => {
+      if (!controller.signal.aborted) img.dataset.failed = "true";
+    }).finally(() => {
+      if (railPending.get(button) !== controller) return;
+      railPending.delete(button);
+      loadVisibleThumbnails();
+    });
+  }
+}
 function badgeFor(st) { return { done: ["done", "✓"], manual: ["manual", "✍"], draft: ["draft", "✎"], skip: ["skip", "–"], del: ["del", "✕"] }[st] || ["", ""]; }
-function renderStrip() {
+function renderStrip(newPhoto) {
   const el = $("strip"), v = visible(), p = cur();
-  const key = S.folder + "|" + S.fUndone + "|" + v.map(x => x.path).join("|").length + "|" + v.length;
+  const key = JSON.stringify([S.folder, v.map(photo => photo.path)]);
   if (key !== stripKey) {
-    stripKey = key; el.innerHTML = ""; stripMap.clear(); if (io) io.disconnect();
-    io = new IntersectionObserver(es => es.forEach(e => {
-      if (!e.isIntersecting) return;
-      const img = e.target.querySelector("img");
-      if (img.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
-      io.unobserve(e.target);
-    }), { root: el, rootMargin: "800px 0px" });
+    stripKey = key;
+    if (io) io.disconnect();
+    for (const controller of railPending.values()) controller.abort();
+    railPending.clear();
+    railVisible.clear();
+    el.replaceChildren();
+    stripMap.clear();
+    io = new IntersectionObserver((entries, observer) => {
+      if (observer !== io) return;
+      for (const entry of entries) {
+        const button = entry.target;
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.01) {
+          railVisible.add(button);
+        } else {
+          railVisible.delete(button);
+          railPending.get(button)?.abort();
+          railPending.delete(button);
+          delete button.firstElementChild.dataset.failed;
+        }
+      }
+      loadVisibleThumbnails();
+    }, { root: el, threshold: 0.01 });
     v.forEach(ph => {
       const b = document.createElement("button"); b.className = "thumb"; b.setAttribute("role", "listitem"); b.title = ph.title || ph.name;
       b.innerHTML = `<img alt="${esc(ph.name)}" data-src="/api/thumb?size=640&path=${q(ph.path)}"><span class="badge"></span>`;
@@ -468,7 +580,10 @@ function renderStrip() {
   const folder = findNode(S.tree, S.folder);
   $("railFolder").textContent = folder?.name || "Všechny fotky";
   drawTrack();
-  const a = [...stripMap.keys()].find(b => stripMap.get(b) === p); if (a) a.scrollIntoView({ block: "center", inline: "nearest" });
+  if (newPhoto) {
+    const selected = [...stripMap.keys()].find(button => stripMap.get(button) === p);
+    if (selected) selected.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+  }
 }
 function drawTrack() {
   const cv = $("track"), v = visible(), p = S.cur, w = cv.clientWidth; if (!w) return;
@@ -939,7 +1054,11 @@ $("undo").onclick = undo;
 $("redo").onclick = redo;
 $("clear").onclick = clearCaption;
 $("more").onclick = e => { e.stopPropagation(); S.menu ? closeMenu() : openMenu(); };
-document.addEventListener("click", e => { if (S.menu && !e.target.closest(".morewrap")) closeMenu(); });
+document.addEventListener("click", e => {
+  if (S.menu && !e.target.closest(".morewrap")) closeMenu();
+  if (!e.target.closest("#folderMenu")) $("folderMenu").hidden = true;
+});
+$("tree").addEventListener("scroll", () => { $("folderMenu").hidden = true; });
 $("closeBtn").onclick = requestClose;
 $("gearBtn").onclick = () => { if (S.state && S.state.configured) openSettings(); };
 $("sideBtn").onclick = () => { S.side = !S.side; $("work").classList.toggle("nosidebar", !S.side); requestAnimationFrame(() => { fitImage(); drawTrack(); }); };
@@ -953,6 +1072,7 @@ $("ta").addEventListener("input", () => {
 document.addEventListener("keydown", e => {
   if (e.defaultPrevented || $("modalHost").innerHTML) return;
   if (e.key === "Escape") {
+    if (!$("folderMenu").hidden) { $("folderMenu").hidden = true; return; }
     closeMenu();
     // Esc zavře nastavení a vrátí do Pracovny
     if (!$("setup").hidden && S.state && S.state.configured && $("back")) $("back").click();

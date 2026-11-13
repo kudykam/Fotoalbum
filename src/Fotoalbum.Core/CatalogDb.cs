@@ -220,6 +220,41 @@ public sealed class CatalogDb : IDisposable
         }
     }
 
+    /// <summary>Hromadná změna příznaku Skip v jedné transakci. Při vrácení se zachovají mezitím upravené fotky.</summary>
+    public (string Batch, List<string> Paths) SetFolderSkipped(List<string> paths, string? undoBatch)
+    {
+        lock (_lock)
+        {
+            var records = GetPhotos(paths);
+            var batch = DateTime.UtcNow.ToString("O");
+            using var tx = _db.BeginTransaction();
+            using var cmd = Cmd(undoBatch is null
+                ? """
+                    INSERT INTO photos(path, skip, updated_at) VALUES($p, 1, $now)
+                    ON CONFLICT(path) DO UPDATE SET skip=1, updated_at=$now
+                    """
+                : "UPDATE photos SET skip=0, updated_at=$now WHERE path=$p AND updated_at=$batch AND skip=1");
+            cmd.Transaction = tx;
+            var pathParameter = cmd.Parameters.AddWithValue("$p", "");
+            cmd.Parameters.AddWithValue("$now", batch);
+            if (undoBatch is not null) cmd.Parameters.AddWithValue("$batch", undoBatch);
+
+            var changed = new List<string>();
+            foreach (var path in paths)
+            {
+                var record = records.GetValueOrDefault(path);
+                if (undoBatch is null
+                    ? record is not null && (record.Status != PhotoStatus.None || record.IsDraft || record.RawDictation.Length > 0)
+                    : record?.Status != PhotoStatus.Skip)
+                    continue;
+                pathParameter.Value = path;
+                if (cmd.ExecuteNonQuery() != 0) changed.Add(path);
+            }
+            tx.Commit();
+            return (batch, changed);
+        }
+    }
+
     public void MarkWritten(string path, string writtenCaption, long size, long mtime)
     {
         lock (_lock)

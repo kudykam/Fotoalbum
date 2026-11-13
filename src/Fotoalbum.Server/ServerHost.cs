@@ -192,6 +192,7 @@ public static class ServerHost
         api.MapGet("/tree", () => Results.Json(s.GetTree()));
         api.MapGet("/folder", (string? path) => Results.Json(s.OpenFolder(path ?? "")));
         api.MapPost("/folder/kind", (FolderKindRequest r) => { s.SetFolderKind(r.Path, r.Kind); return Results.Ok(); });
+        api.MapPost("/folder/complete", (FolderCompletionRequest r) => Results.Json(s.CompleteFolder(r.Path, r.UndoBatch)));
 
         api.MapGet("/photo", (string path) => Results.Json(s.GetPhoto(path)));
         api.MapPut("/photo/caption", (CaptionRequest r) => Results.Json(s.SaveCaption(r.Path, r.Caption ?? "", r.IsDraft, r.Source, r.Title, r.Raw)));
@@ -272,6 +273,7 @@ public sealed record ImproveRequest(string Path, string? Dictation);
 public sealed record FixRequest(string Path, string? Caption, string? Instruction);
 public sealed record SettingsRequest(string? PhotoRoot, string? ExifToolPath, bool? AutoImport, int? TextSize);
 public sealed record FolderKindRequest(string Path, string? Kind);
+public sealed record FolderCompletionRequest(string Path, string? UndoBatch);
 public sealed record CaptionRequest(string Path, string? Caption, bool IsDraft, string? Source = null, string? Title = null, string? Raw = null);
 public sealed record FlagsRequest(string Path, bool? Skip, bool? MarkedDelete, int? Rotation);
 public sealed record PositionRequest(string Folder, string Path);

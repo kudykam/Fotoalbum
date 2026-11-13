@@ -24,11 +24,17 @@ public sealed class Thumbnails(string cacheDir)
         {
             if (File.Exists(target)) return target;
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            ct.ThrowIfCancellationRequested();
             var bytes = Render(fullPath, maxSize);
+            ct.ThrowIfCancellationRequested();
             var tmp = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            await File.WriteAllBytesAsync(tmp, bytes, ct);
-            File.Move(tmp, target, overwrite: true);
-            return target;
+            try
+            {
+                await File.WriteAllBytesAsync(tmp, bytes, ct);
+                File.Move(tmp, target, overwrite: true);
+                return target;
+            }
+            finally { File.Delete(tmp); }
         }
         finally { _gate.Release(); }
     }
