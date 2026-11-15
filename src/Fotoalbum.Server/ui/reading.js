@@ -215,7 +215,7 @@ function renderLibrary() {
         summaries.set(folder.path, { path: folder.path, name: folder.name, count: folder.total, from: folder.first });
       for (const child of folder.children) addMarkedFolders(child);
     }
-    addMarkedFolders(S.tree);
+    if (B.loading || !B.albums) addMarkedFolders(S.tree);
     const albums = sortFolders([...summaries.values()], album => album.name, album => album.from);
     el.innerHTML = head + (!albums.length && B.loading && !B.albums ? '<p role="status">Načítám dovolené…</p>'
       : !albums.length && !B.albums ? '<p>Dovolené se nepodařilo načíst.</p><button class="b small" id="retryAlbums">Zkusit znovu</button>'
@@ -269,7 +269,7 @@ function wireCards(el) {
       button.oncontextmenu = event => {
         event.preventDefault();
         if (!S.busy && !$("modalHost").firstChild) {
-          showFolderMenu(event, folder || { path, kind: "dovolena" }, button);
+          showFolderMenu(event, album ? { ...folder, path, kind: "dovolena" } : folder, button);
         }
       };
     }
