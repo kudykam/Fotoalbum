@@ -243,6 +243,15 @@ Mají přednost před starším textem (2.7, 2.11, 2.12, 2.13), kde se liší.
 - **Vyhledávání v celé knihovně:** program po startu **pomalu na pozadí prochází všechny složky** (čte data a popisky z fotek) a po dokončení to za 30 minut zopakuje (nové fotky z karty). Dokud neprojde vše, ukazuje se u hledání „Připravuji vyhledávání: prošlo X z Y fotek“ a hledá se jen v prošlých fotkách.
 - Ve výsledcích: nalezená alba (podle názvu, úvodu nebo data) a nalezené fotky (podle nadpisu, popisku, data); fotky alba nalezeného podle názvu se samostatně neopakují.
 
+### 2.15 Poznatky z testu 0.4.0-test.5 (15. 11. 2026)
+- **Označení dovolené:** při práci s fotkami z NASu přes místní síť se u složky se zhruba 500 fotkami palma a tučný název objeví až po 10–15 sekundách. Po uložení změny aktualizovat označení složky hned, bez čekání na načtení jejích fotek nebo celé knihovny.
+- **Vrácení dokončení složky:** nabídnout ve stejném kontextovém menu možnost **Vrátit označení složky jako hotové**, dostupnou i po zmizení krátkého potvrzení. Vrátit pouze příznaky **Bez popisku**, které přidalo hromadné dokončení, a respektovat mezitím provedené úpravy jednotlivých fotek. Stav fajfky přepočítat.
+- **Přehled Čtení:** při čtyřech označených dovolených trvá zobrazení přehledu dlouho. Co nejdřív zobrazit názvy a dostupné údaje, titulní náhledy doplňovat průběžně.
+- **První fotka ve Čtení:** otevření první fotky k prohlížení má znatelnou prodlevu. Upřednostnit zobrazení vybrané fotky a ostatní snímky alba načítat postupně.
+- **Celá obrazovka ve Čtení:** fotka se zvětší na dostupnou plochu monitoru se zachováním poměru stran. Záhlaví, strom a panely nesmějí zabírat její plochu. Ovládání listování a popisku může být přes fotku. Esc vrátí původní rozložení.
+- **Filtr Vše / Popsané / Nepopsané:** v Pracovně volba **Popsané** ponechává ve stromu i složky bez odpovídajících fotek. Filtr má ovlivňovat fotky i strom. Složka odpovídá, pokud obsahuje alespoň jednu vlastní fotku daného stavu. Předky ponechat kvůli navigaci. Stavy se počítají podle pravidel v oddílu 2.14.
+- **Filtr ve Čtení:** přepínač při přechodu do Čtení zmizí (dosavadní specifikace ho omezovala na Pracovnu). Zobrazit ho také ve Čtení a použít vybraný filtr pro strom, přehled alb i zobrazené fotky.
+
 ### 2.8 Automatické aktualizace (schváleno 12. 11. 2026)
 - Zdroj: **GitHub Releases** repozitáře (veřejné, bez přihlášení). Nástroj **Velopack** (MIT): instalace do profilu uživatele bez práv správce, rozdílové aktualizace, kontrola celistvosti.
 - **Dva kanály:**
