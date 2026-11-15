@@ -361,19 +361,13 @@ kbd{font-family:var(--ui);font-size:13px;border:1px solid var(--line);border-bot
 .reader-photo-frame.turned img{width:calc(100% / var(--ratio));height:calc(100% * var(--ratio))}
 .reader-caption.photo-caption{
   position:absolute;inset:auto 0 0;max-height:48%;margin:0;padding:10px clamp(12px,2vw,28px);
-  background:rgba(12,18,15,.75);color:#fff;backdrop-filter:blur(6px)
+  background:rgba(12,18,15,.55);color:#fff;backdrop-filter:blur(6px);text-shadow:0 1px 2px #111
 }
 .photo-caption p{margin:0}
 .reader-loading.with-preview{display:flex;justify-content:center;align-items:center;flex:none;min-height:0;padding:8px}
 .reader:fullscreen.reader-photo-mode{padding:0;overflow:hidden;background:var(--stage)}
 .reader:fullscreen.reader-photo-mode .photo-page{position:absolute;inset:0}
-.app.reading-full .reader:fullscreen.reader-photo-mode .reader-tools,.reader:fullscreen.reader-photo-mode .reader-nav{
-  position:absolute;z-index:1;left:0;right:0;margin:0;padding:8px 12px;background:rgba(12,18,15,.85);color:#fff
-}
-.reader:fullscreen.reader-photo-mode .reader-tools{top:0}
-.reader:fullscreen.reader-photo-mode .reader-nav{bottom:0}
-.reader:fullscreen.reader-photo-mode .reader-status{color:#fff}
-.reader:fullscreen.reader-photo-mode .photo-caption{bottom:min(60px,15%)}
+.reader:fullscreen .reader-tools,.reader:fullscreen .reader-nav{display:none}
 
 .node.multi-selected{outline:2px solid var(--focus);outline-offset:-2px}
 .loading .spin{width:34px;height:34px;border-width:4px}

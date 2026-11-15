@@ -335,6 +335,18 @@ public class FotoalbumServiceTests
     }
 
     [Fact]
+    public void Chybejici_dovolena_nevytvori_dlazdici_ze_stareho_zaznamu()
+    {
+        var (t, s) = Setup();
+        using (t) using (s)
+        {
+            s.SetFolderKind("temp", FolderKind.Vacation);
+            Assert.Empty(s.GetReadingAlbums());
+            Assert.Equal(FolderKind.Vacation, s.KindOf("temp"));
+        }
+    }
+
+    [Fact]
     public void Hotovou_slozku_lze_vratit_po_obnoveni_stromu()
     {
         var (t, s) = Setup();

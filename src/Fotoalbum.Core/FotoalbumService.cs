@@ -254,13 +254,15 @@ public sealed class FotoalbumService : IDisposable
         foreach (var (path, kind) in Db.GetFolderKinds())
         {
             if (FolderKind.Normalize(kind) != FolderKind.Vacation) continue;
+            var directory = lib.Resolve(path);
+            if (!Directory.Exists(directory)) continue;
             var photos = Db.GetPhotosUnder(path).Where(photo => !photo.MarkedDelete)
                 .OrderBy(photo => photo.DateTaken ?? "9999")
                 .ThenBy(photo => photo.Path, StringComparer.CurrentCultureIgnoreCase).ToList();
-            var cover = photos.FirstOrDefault();
+            var cover = photos.FirstOrDefault(photo => File.Exists(lib.Resolve(photo.Path)));
             var to = photos.LastOrDefault(photo => photo.DateTaken is not null)?.DateTaken;
-            result.Add(new ReadingAlbumSummaryDto(path, Path.GetFileName(lib.Resolve(path).TrimEnd(Path.DirectorySeparatorChar)),
-                intros.GetValueOrDefault(path) ?? "", photos.Count, cover?.Path, cover?.Rotation ?? 0, cover?.DateTaken, to));
+            result.Add(new ReadingAlbumSummaryDto(path, Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar)),
+                intros.GetValueOrDefault(path) ?? "", photos.Count, cover?.Path, cover?.Rotation ?? 0, photos.FirstOrDefault()?.DateTaken, to));
         }
         return result;
     }

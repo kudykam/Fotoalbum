@@ -259,11 +259,33 @@ function renderLibrary() {
   wireCards(el);
 }
 function wireCards(el) {
-  el.querySelectorAll("[data-album]").forEach(button => button.onclick = () => {
+  for (const button of el.querySelectorAll("[data-album]")) {
     const path = button.dataset.album;
-    const meta = (B.albums || []).find(a => a.path === path) || B.index?.folders.find(f => f.path === path) || findNode(S.tree, path) || { path };
-    openReader(meta, button.dataset.photo || undefined);
-  });
+    const album = B.albums?.find(item => item.path === path);
+    const folder = findNode(S.tree, path);
+    const meta = album || B.index?.folders.find(item => item.path === path) || folder || { path };
+    button.onclick = () => openReader(meta, button.dataset.photo || undefined);
+    if (!button.dataset.photo && (album || folder)) {
+      button.oncontextmenu = event => {
+        event.preventDefault();
+        if (!S.busy && !$("modalHost").firstChild) {
+          showFolderMenu(event, folder || { path, kind: "dovolena" }, button);
+        }
+      };
+    }
+    const cover = button.querySelector("figure img");
+    if (cover) {
+      const showFallback = () => {
+        const fallback = document.createElement("span");
+        fallback.className = "nocover";
+        fallback.setAttribute("aria-hidden", "true");
+        fallback.textContent = "🌴";
+        cover.replaceWith(fallback);
+      };
+      cover.addEventListener("error", showFallback, { once: true });
+      if (cover.complete && !cover.naturalWidth) showFallback();
+    }
+  }
 }
 
 /* ---------- čtení alba ---------- */
@@ -319,6 +341,14 @@ function startReader() {
 function readerPhotos() {
   return (B.reader.album.photos || []).filter(photo => !B.captioned || photo.caption.trim());
 }
+function readerKey(event) {
+  if (!B.reader?.album.photos || B.intro || !$("folderMenu").hidden) return;
+  if (event.ctrlKey || event.altKey || event.metaKey || event.target.closest("input, textarea, select, [contenteditable]")) return;
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  event.preventDefault();
+  readerStep(event.key === "ArrowLeft" ? -1 : 1);
+}
+
 function readerStep(delta, wrap = false) {
   if (!B.reader.album.photos) return;
   const photos = readerPhotos();
@@ -390,8 +420,9 @@ function renderReader() {
   const image = photo || photos[0] || album.photos[0];
   const overlay = S.state.readingLayout === "overlay";
   const fullScreen = document.fullscreenElement === reader;
-  reader.classList.toggle("reader-photo-mode", !!photo);
-  const caption = photo?.caption?.trim();
+  const photoMode = !!photo || fullScreen;
+  reader.classList.toggle("reader-photo-mode", photoMode);
+  const caption = (photo ? photo.caption : album.intro)?.trim();
   const position = photo ? "Fotka " + (photos.indexOf(photo) + 1) + " z " + photos.length : "Úvod alba";
   const focused = reader.contains(document.activeElement) ? document.activeElement.id : "";
   const sub = photo && folderOf(photo.path) !== album.path ? folderOf(photo.path).split("/").pop() : "";
@@ -402,11 +433,11 @@ function renderReader() {
     <label class="toggle"><input id="captionOnly" type="checkbox" ${B.captioned ? "checked" : ""}> Jen fotky s popiskem</label>
     <button class="b small" id="autoPlay" ${photos.length ? "" : "disabled"}>${B.autoplay ? "Zastavit přehrávání" : "Přehrávat samo"}</button>
     <button class="b small" id="fullScreen">${fullScreen ? "Ukončit celou obrazovku" : "Celá obrazovka"}</button>
-    ${caption ? `<button class="b small" id="toggleCaption">${B.captionVisible ? "Skrýt popisek" : "Ukázat popisek"}</button>` : ""}
+    ${photo && caption ? `<button class="b small" id="toggleCaption">${B.captionVisible ? "Skrýt popisek" : "Ukázat popisek"}</button>` : ""}
     ${!photo ? '<button class="b small" id="editIntro">Upravit úvod alba</button>' : ""}
   </div>
-  ${photo ? `<div class="reader-page photo-page" id="readerPage">${readerPhotoHtml(photo,
-    caption && B.captionVisible ? `<div class="reader-caption photo-caption"><p>${esc(photo.caption)}</p></div>` : "")}</div>` : `
+  ${photoMode ? `<div class="reader-page photo-page" id="readerPage">${readerPhotoHtml(image,
+    caption && (!photo || B.captionVisible) ? `<div class="reader-caption photo-caption"><p>${esc(caption)}</p></div>` : "")}</div>` : `
   <div class="reader-page ${overlay ? "overlay" : ""}" id="readerPage">
     <div class="reader-image ${image?.rotation % 180 ? "rotated" : ""}">${image ? `<img alt="${esc(photoTitle(image))}" src="/api/image?path=${q(image.path)}" style="transform:rotate(${image.rotation}deg)">` : ""}</div>
     <div class="reader-caption" ${overlay && !B.captionVisible && photo ? "hidden" : ""}>

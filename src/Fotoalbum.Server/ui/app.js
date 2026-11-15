@@ -336,7 +336,7 @@ function renderTree() {
   el.scrollTop = scrollTop;
 }
 
-/** Nabídka pravého tlačítka na složce: dovolená ano/ne, v Pracovně i „Označit složku jako hotovou“. */
+/** Nabídka pravého tlačítka na složce: dovolená ano/ne a stav dokončení. */
 function showFolderMenu(event, folder, anchor) {
   const menu = $("folderMenu");
   const vacation = folder.kind === "dovolena";
@@ -345,14 +345,19 @@ function showFolderMenu(event, folder, anchor) {
     [`🌴 Označit vybrané složky jako dovolené (${group.length})`, () => setFolderKind(group, "dovolena")],
     ["Zrušit označení dovolené u vybraných složek", () => setFolderKind(group, "bezne")],
   ] : [[vacation ? "Zrušit označení dovolené" : "🌴 Označit jako dovolenou", () => setFolderKind([folder.path], vacation ? "bezne" : "dovolena")]];
-  if (S.view === "work" && folder.completionBatch)
+  if (folder.completionBatch)
     items.push(["Vrátit označení složky jako hotové", () => changeFolderCompletion(folder.path, folder.completionBatch)]);
-  if (S.view === "work" && folder.ownTotal > 0 && !folder.complete)
-    items.push(["✓ Označit složku jako hotovou", () => changeFolderCompletion(folder.path)]);
-  menu.replaceChildren(...items.map(([label, fn]) => {
+  if (!folder.complete || !folder.completionBatch)
+    items.push(["✓ Označit složku jako hotovou",
+      folder.ownTotal > 0 && !folder.complete ? () => changeFolderCompletion(folder.path) : null,
+      folder.complete ? "Složka už je hotová." : "Složka nemá vlastní fotky."]);
+
+  menu.replaceChildren(...items.map(([label, fn, reason]) => {
     const button = document.createElement("button");
     button.type = "button"; button.className = "b"; button.textContent = label;
-    button.onclick = () => { menu.hidden = true; anchor.focus({ preventScroll: true }); Promise.resolve(fn()).catch(fail); };
+    button.disabled = !fn;
+    if (reason && !fn) button.title = reason;
+    if (fn) button.onclick = () => { menu.hidden = true; anchor.focus({ preventScroll: true }); Promise.resolve(fn()).catch(fail); };
     return button;
   }));
   const note = document.createElement("small");
@@ -384,9 +389,11 @@ async function setFolderKind(paths, kind) {
 }
 
 async function changeFolderCompletion(path, undoBatch = null) {
-  if (S.busy || S.view !== "work") return;
-  if (path === S.folder && folderMetadataLoading) return toast("Nejdřív počkejte na načtení popisků.");
-  if (path === S.folder && !(await guardLeave())) return;
+  if (S.busy) return;
+  const currentFolder = path === S.folder;
+  if (currentFolder && folderMetadataLoading) return toast("Nejdřív počkejte na načtení popisků.");
+  const editingFolder = currentFolder && S.view === "work";
+  if (editingFolder && !(await guardLeave())) return;
   if (S.busy) return;
   S.busy = true;
   renderButtons();
@@ -394,7 +401,7 @@ async function changeFolderCompletion(path, undoBatch = null) {
   const textarea = $("ta");
   textarea.readOnly = true;
   try {
-    if (path === S.folder) await commit();
+    if (editingFolder) await commit();
     toast(undoBatch ? "Vracím označení fotek…" : "Označuji složku jako hotovou…");
     result = await api("POST", "/api/folder/complete", { path, undoBatch });
     if (path === S.folder) {
@@ -1161,6 +1168,11 @@ $("ta").addEventListener("input", () => {
 document.addEventListener("keydown", e => {
   if (e.defaultPrevented || $("modalHost").innerHTML) return;
   if (e.key === "Escape") {
+    if (document.fullscreenElement) {
+      e.preventDefault();
+      document.exitFullscreen().catch(fail);
+      return;
+    }
     if (!$("folderMenu").hidden) { $("folderMenu").hidden = true; return; }
     closeMenu();
     // Esc zavře nastavení a vrátí do Pracovny
