@@ -233,7 +233,7 @@ Mají přednost před starším textem (2.7, 2.11, 2.12, 2.13), kde se liší.
 - Dovolená se nastavuje **pravým tlačítkem na složce** („🌴 Označit jako dovolenou“ / „Zrušit označení dovolené“). Zaškrtávátko „Tato složka je z dovolené“ i filtr „Ukázat jen dovolené“ se ruší.
 - **Platí jen pro tu jednu složku** – podsložky druh nedědí (dřívější dědění se ruší).
 - Počet u složky = **vyřízené / všechny fotky přímo v této složce** (bez podsložek); složka bez vlastních fotek počet nemá.
-- Pod stromem: přepínač fotek **Vše / Nepopsané / Popsané** (jen Pracovna; „Bez popisku“ se počítá k popsaným, k nepopsaným patří prázdné a rozepsané) a **Řadit složky: název / nejnovější / nejstarší** (podle data nejstarší fotky; řadí strom i dlaždice ve Čtení; pamatuje se v počítači).
+- Pod stromem je filtr složek **Vše / Popsané / Nepopsané** (viz 2.15) a **Řadit složky: název / nejnovější / nejstarší** (podle data nejstarší fotky; řadí strom i dlaždice ve Čtení; pamatuje se v počítači).
 
 **Fotky složky:** složka ukazuje **jen své vlastní fotky**; fotky podsložky se zobrazí až po klepnutí na podsložku. **Označit složku jako hotovou** (pravé tlačítko) a zelená fajfka platí jen pro vlastní fotky složky.
 
@@ -252,8 +252,8 @@ Mají přednost před starším textem (2.7, 2.11, 2.12, 2.13), kde se liší.
 - **První fotka ve Čtení:** otevření první fotky k prohlížení má znatelnou prodlevu. Upřednostnit zobrazení vybrané fotky a ostatní snímky alba načítat postupně.
 - **Zobrazení fotky ve Čtení:** v otevřeném albu se vždy ukáže celý snímek se zachováním poměru stran, včetně snímků na výšku a otočených fotek. Vedle fotky už není samostatná bílá stránka knihy. Případný popisek je v poloprůhledném rámečku dole přes fotku. U snímku bez popisku se rámeček nezobrazuje. Tento požadavek má přednost před volbou Kniha / Fotka přes celou plochu pro zobrazení jednotlivých snímků. Knižní vzhled zůstává dostupný pro úvod alba.
 - **Celá obrazovka ve Čtení:** fotka se zvětší na dostupnou plochu monitoru se zachováním poměru stran. Záhlaví, strom a panely nesmějí zabírat její plochu. Ovládání listování a popisku může být přes fotku. Esc vrátí původní rozložení.
-- **Filtr Vše / Popsané / Nepopsané:** v Pracovně volba **Popsané** ponechává ve stromu i složky bez odpovídajících fotek. Filtr má ovlivňovat fotky i strom. Složka odpovídá, pokud obsahuje alespoň jednu vlastní fotku daného stavu. Předky ponechat kvůli navigaci. Stavy se počítají podle pravidel v oddílu 2.14.
-- **Filtr ve Čtení:** přepínač při přechodu do Čtení zmizí (dosavadní specifikace ho omezovala na Pracovnu). Zobrazit ho také ve Čtení a použít vybraný filtr pro strom, přehled alb i zobrazené fotky.
+- **Filtr složek Vše / Popsané / Nepopsané:** přepínač v Pracovně i ve Čtení ovlivňuje pouze strom. Složka je **Popsaná**, když má vlastní fotky a všechny jsou vyřízené: mají hotový popisek, ruční popisek nebo záměrný stav **Bez popisku**. Akce **Označit složku jako hotovou** započítá dosud nevyřízené prázdné fotky jako **Bez popisku**.
+- Složka je **Nepopsaná**, pokud alespoň jedna vlastní fotka zůstává prázdná bez označení nebo rozepsaná. Položky označené ke smazání se do stavu nepočítají. Nadřazené složky zůstávají ve stromu kvůli navigaci, pokud některý jejich potomek odpovídá. Přepínač nemění výběr fotek v otevřené složce ani přehled alb ve Čtení.
 
 ### 2.8 Automatické aktualizace (schváleno 12. 11. 2026)
 - Zdroj: **GitHub Releases** repozitáře (veřejné, bez přihlášení). Nástroj **Velopack** (MIT): instalace do profilu uživatele bez práv správce, rozdílové aktualizace, kontrola celistvosti.

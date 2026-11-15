@@ -17,15 +17,15 @@ public sealed record PhotoDto(string Path, string Name, string? Date, string Sta
 
 public sealed record FolderPhotosDto(string Folder, string? LastPhoto, List<PhotoDto> Photos);
 
-public sealed record ReadingPhotoDto(string Path, string Name, string? Date, string? Title, string Caption, int Rotation, string Status = "none");
+public sealed record ReadingPhotoDto(string Path, string Name, string? Date, string? Title, string Caption, int Rotation);
 /// <summary>Album (dlaždice) na hlavní stránce Čtení – jen údaje z databáze, bez čtení souborů.</summary>
-public sealed record ReadingAlbumSummaryDto(string Path, string Name, string Intro, int Count, string? Cover, int CoverRotation, string? From, string? To, int Handled = 0);
+public sealed record ReadingAlbumSummaryDto(string Path, string Name, string Intro, int Count, string? Cover, int CoverRotation, string? From, string? To);
 /// <summary>Otevřené album: fotky složky a pak fotky jejích podsložek.</summary>
 public sealed record ReadingAlbumDto(string Path, string Name, string Intro, List<ReadingPhotoDto> Photos);
 /// <summary>Podklady pro vyhledávání: všechny už prošlé fotky a složky.</summary>
 public sealed record SearchIndexDto(List<SearchFolderDto> Folders, List<SearchPhotoDto> Photos, int Indexed, int Total);
 public sealed record SearchFolderDto(string Path, string Name, string Kind, string Intro);
-public sealed record SearchPhotoDto(string Path, string? Date, string? Title, string Caption, int Rotation, string Status = "none");
+public sealed record SearchPhotoDto(string Path, string? Date, string? Title, string Caption, int Rotation);
 public sealed record IndexStatusDto(int Indexed, int Total, bool Running);
 
 public sealed record TrashItemDto(string Path, string Name, string Album);
@@ -260,8 +260,7 @@ public sealed class FotoalbumService : IDisposable
             var cover = photos.FirstOrDefault();
             var to = photos.LastOrDefault(photo => photo.DateTaken is not null)?.DateTaken;
             result.Add(new ReadingAlbumSummaryDto(path, Path.GetFileName(lib.Resolve(path).TrimEnd(Path.DirectorySeparatorChar)),
-                intros.GetValueOrDefault(path) ?? "", photos.Count, cover?.Path, cover?.Rotation ?? 0, cover?.DateTaken, to,
-                photos.Count(photo => photo.Status is PhotoStatus.Done or PhotoStatus.Manual or PhotoStatus.Skip)));
+                intros.GetValueOrDefault(path) ?? "", photos.Count, cover?.Path, cover?.Rotation ?? 0, cover?.DateTaken, to));
         }
         return result;
     }
@@ -287,7 +286,7 @@ public sealed class FotoalbumService : IDisposable
                         .OrderBy(photo => photo.Date ?? "9999")
                         .ThenBy(photo => photo.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
                 photos.AddRange(own.Where(photo => photo.Status != "del").Select(photo => new ReadingPhotoDto(photo.Path, photo.Name, photo.Date, photo.Title,
-                    photo.IsDraft ? "" : photo.Caption, photo.Rotation, photo.Status)));
+                    photo.IsDraft ? "" : photo.Caption, photo.Rotation)));
             }
             foreach (var child in n.Children) Add(child);
         }
@@ -315,7 +314,7 @@ public sealed class FotoalbumService : IDisposable
         foreach (var p in all)
         {
             if (!recs.TryGetValue(p, out var r) || !r.Imported || r.MarkedDelete) continue;
-            photos.Add(new SearchPhotoDto(p, r.DateTaken, r.Title, r.IsDraft ? "" : r.Caption, r.Rotation, ToDto(p, r, FolderKind.Everyday).Status));
+            photos.Add(new SearchPhotoDto(p, r.DateTaken, r.Title, r.IsDraft ? "" : r.Caption, r.Rotation));
         }
         return new SearchIndexDto(folders, photos, recs.Values.Count(r => r.Imported), all.Count);
     }

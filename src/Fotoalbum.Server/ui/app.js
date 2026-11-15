@@ -6,10 +6,9 @@ const $ = id => document.getElementById(id);
 const S = {
   state: null, host: "web", canPick: false,
   tree: null, open: new Set([""]), browseOpen: new Set([""]), view: "work", folder: null, photos: [], cur: null,
-  photoFilter: "all",     // Vše / Nepopsané / Popsané
+  folderFilter: "all",    // Vše / Nepopsané / Popsané ve stromu
   sort: (() => { try { return localStorage.getItem("fotoalbum-razeni") || "name"; } catch { return "name"; } })(),
   side: true, menu: false,
-  keep: new Set(),        // fotky vyřízené během zapnutého filtru – zůstanou vidět do přepnutí filtru
   saved: "",              // uložený popisek aktuální fotky
   busy: false, closed: false,
   hist: [], hi: 0,        // historie akcí pro Zpět/Znovu (jen v aktuální složce, do zavření okna)
@@ -63,10 +62,12 @@ function draftClear() { try { localStorage.removeItem(DRAFT_KEY); } catch { } }
 function draftGet() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; } }
 const isDirty = () => !!S.cur && $("ta").value !== S.saved;
 const handled = p => p.status === "done" || p.status === "manual" || p.status === "skip";
-const matchesPhotoFilter = photo => S.photoFilter === "all" ||
-  (photo.status !== "del" && (S.photoFilter === "done" ? handled(photo) : !handled(photo)));
-const matchesFolderFilter = (total, done) => S.photoFilter === "all" ||
-  (S.photoFilter === "done" ? done > 0 : total > done);
+const matchesFolderFilter = folder => {
+  if (S.folderFilter === "all") return true;
+  if (!folder.ownTotal) return false;
+  const complete = folder.complete || folder.ownHandled === folder.ownTotal;
+  return S.folderFilter === "done" ? complete : !complete;
+};
 /** Stav popisku pro historii Zpět/Znovu: text, původ (ai/manual/file) a nadpis. */
 const snap = p => ({ c: S.saved, s: p.source || "manual", t: p.source === "ai" ? p.title : null });
 
@@ -245,7 +246,7 @@ function renderTree() {
   const matches = new Set();
   function matchBranch(folder) {
     for (const child of folder.children) matchBranch(child);
-    if (matchesFolderFilter(folder.ownTotal, folder.ownHandled) || folder.children.some(child => matches.has(child.path)))
+    if (matchesFolderFilter(folder) || folder.children.some(child => matches.has(child.path)))
       matches.add(folder.path);
   }
   matchBranch(S.tree);
@@ -404,7 +405,6 @@ async function changeFolderCompletion(path, undoBatch = null) {
         if (updated.has(photo.path)) Object.assign(photo, updated.get(photo.path));
         if (changed.has(photo.path)) {
           if (undoBatch) photo.status = "none";
-          S.keep.delete(photo.path);
         }
       }
       S.saved = cur()?.caption || "";
@@ -439,7 +439,7 @@ async function openFolder(path, initial) {
   const controller = new AbortController();
   folderLoad = controller;
   S.folder = path; expandTo(path, S.open, true); renderTree();
-  S.hist = []; S.hi = 0; S.keep.clear();
+  S.hist = []; S.hi = 0;
   S.photos = []; S.cur = null; S.saved = "";
   folderMetadataLoading = true;
   renderAll(true);
@@ -464,7 +464,6 @@ async function openFolder(path, initial) {
     if (controller.signal.aborted || S.folder !== path) return;
     const photosByPath = new Map(S.photos.map(photo => [photo.path, photo]));
     const before = S.cur, previousCaption = S.saved, dirty = isDirty();
-    if (dirty) S.keep.add(before.path);
     S.photos = detailed.photos.map(photo => {
       const existing = photosByPath.get(photo.path);
       if (!existing || (existing === before && dirty) || existing.writePending) return existing || photo;
@@ -481,9 +480,7 @@ async function openFolder(path, initial) {
     if (folderLoad === controller) $("loading").hidden = true;
   }
 }
-function visible() {
-  return S.photos.filter(p => matchesPhotoFilter(p) || S.keep.has(p.path));
-}
+function visible() { return S.photos; }
 function cur() { const v = visible(); if (!S.cur || !v.includes(S.cur)) { S.cur = v[0] || null; S.saved = S.cur ? S.cur.caption : ""; } return S.cur; }
 const byPath = path => S.photos.find(p => p.path === path);
 
@@ -535,7 +532,6 @@ async function saveCaption(p, text, source, title, raw) {
   const d = await api("PUT", "/api/photo/caption", { path: p.path, caption: text, isDraft: false, source: source || "manual", title: title || null, raw: raw ?? null });
   Object.assign(p, d);
   if (S.cur === p) S.saved = d.caption;
-  if (S.photoFilter !== "all") S.keep.add(p.path); // změněná fotka nezmizí hned pod rukama
   pollWrite(p);
   return d;
 }
@@ -696,10 +692,8 @@ function renderStage(newPhoto) {
   if (!p) {
     img.hidden = true; $("meta").innerHTML = "";
     const e = document.createElement("div"); e.className = "empty";
-    e.innerHTML = S.photos.length ? `Ve složce nejsou žádné ${S.photoFilter === "done" ? "popsané" : "nepopsané"} fotky.<button class="b small solid" id="showAll">Ukázat všechny fotky</button>`
-      : "V této složce nejsou žádné fotky. Vyberte jinou složku vlevo.";
+    e.textContent = "V této složce nejsou žádné fotky. Vyberte jinou složku vlevo.";
     st.append(e);
-    const b = $("showAll"); if (b) b.onclick = () => setPhotoFilter("all").catch(fail);
     return;
   }
   img.hidden = false;
@@ -792,7 +786,6 @@ async function setFlags(after, before, then) {
   await run(async () => {
     await commit();
     Object.assign(p, await api("POST", "/api/photo/flags", { path: p.path, ...after }));
-    if (S.photoFilter !== "all") S.keep.add(p.path);
     record({ t: "flags", path: p.path, before, after });
     if (then) await then();
   });
@@ -1147,19 +1140,12 @@ $("tree").addEventListener("scroll", () => { $("folderMenu").hidden = true; });
 $("closeBtn").onclick = requestClose;
 $("gearBtn").onclick = () => { if (S.state && S.state.configured) openSettings(); };
 $("sideBtn").onclick = () => { S.side = !S.side; $("work").classList.toggle("nosidebar", !S.side); requestAnimationFrame(() => { fitImage(); drawTrack(); }); };
-async function setPhotoFilter(value) {
-  if (S.busy || value === S.photoFilter) return;
-  if (S.view === "work") {
-    if (!(await guardLeave())) return;
-    await commit();
-  }
-  S.photoFilter = value; S.keep.clear(); stripKey = "";
-  document.querySelectorAll("#photoFilter button").forEach(b => b.setAttribute("aria-pressed", b.dataset.f === value));
+function setFolderFilter(value) {
+  S.folderFilter = value;
+  document.querySelectorAll("#folderFilter button").forEach(button => button.setAttribute("aria-pressed", button.dataset.f === value));
   renderTree();
-  if (S.view === "work") renderAll(true);
-  else renderLibrary();
 }
-document.querySelectorAll("#photoFilter button").forEach(b => b.onclick = () => setPhotoFilter(b.dataset.f).catch(fail));
+document.querySelectorAll("#folderFilter button").forEach(button => button.onclick = () => setFolderFilter(button.dataset.f));
 $("folderSort").value = S.sort;
 $("folderSort").onchange = e => {
   S.sort = e.target.value;

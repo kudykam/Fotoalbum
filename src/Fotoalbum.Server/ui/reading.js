@@ -216,13 +216,10 @@ function renderLibrary() {
       for (const child of folder.children) addMarkedFolders(child);
     }
     addMarkedFolders(S.tree);
-    const albums = sortFolders([...summaries.values()].filter(album => {
-      const folder = findNode(S.tree, album.path);
-      return matchesFolderFilter(folder?.total ?? album.count, folder?.handled ?? album.handled);
-    }), album => album.name, album => album.from);
+    const albums = sortFolders([...summaries.values()], album => album.name, album => album.from);
     el.innerHTML = head + (!albums.length && B.loading && !B.albums ? '<p role="status">Načítám dovolené…</p>'
       : !albums.length && !B.albums ? '<p>Dovolené se nepodařilo načíst.</p><button class="b small" id="retryAlbums">Zkusit znovu</button>'
-      : !albums.length ? '<p role="status">Žádná dovolená se zvoleným filtrem. Složku můžete otevřít také ve stromu nebo ji pravým tlačítkem označit jako dovolenou.</p>'
+      : !albums.length ? '<p role="status">Zatím není označená žádná dovolená. Složku můžete otevřít také ve stromu nebo ji pravým tlačítkem označit jako dovolenou.</p>'
       : `<div class="album-grid">${albums.map(a => cardHtml({ path: a.path, cover: a.cover, rotation: a.coverRotation, title: a.name,
           sub: [periodText(a.from, a.to), a.count ? a.count + " fotek" : ""].filter(Boolean).join(" · ") })).join("")}</div>`);
     if ($("retryAlbums")) $("retryAlbums").onclick = loadAlbums;
@@ -238,12 +235,11 @@ function renderLibrary() {
   const match = makeSearch(query, B.intent);
   const folders = new Map(B.index.folders.map(f => [f.path, f]));
   const byFolder = new Map();
-  for (const p of B.index.photos.filter(matchesPhotoFilter)) { const f = folderOf(p.path); if (!byFolder.has(f)) byFolder.set(f, []); byFolder.get(f).push(p); }
+  for (const p of B.index.photos) { const f = folderOf(p.path); if (!byFolder.has(f)) byFolder.set(f, []); byFolder.get(f).push(p); }
   const albumHits = [], photoHits = [];
   for (const f of folders.values()) {
     const text = [f.path, f.name, f.intro].join(" ");
     const photos = byFolder.get(f.path) || [];
-    if (!matchesFolderFilter(findNode(S.tree, f.path)?.total ?? 0, findNode(S.tree, f.path)?.handled ?? 0)) continue;
     const albumByText = match(text, null);
     if (albumByText || photos.some(p => match(text, p.date))) albumHits.push(f);
     // fotky z alba nalezeného podle názvu zastupuje samo album; zvlášť se ukážou jen ty, které sedí i vlastním textem
@@ -277,7 +273,7 @@ async function openReader(meta, photoPath) {
   stopAutoplay();
   if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
   const album = meta.photos ? meta : { path: meta.path, name: meta.name, intro: meta.intro || "", photos: null };
-  const preview = photoPath || (!B.captioned && !album.intro && S.photoFilter === "all" ? meta.cover : null);
+  const preview = photoPath || (!B.captioned && !album.intro ? meta.cover : null);
   B.reader = { album, photoPath: null, want: photoPath, preview, previewRotation: preview === meta.cover ? meta.coverRotation : 0,
     controller: new AbortController() };
   B.returnFocus = document.activeElement?.dataset?.album ? { path: meta.path, photoPath } : null;
@@ -311,7 +307,7 @@ async function openReader(meta, photoPath) {
 }
 function startReader() {
   const { album, want } = B.reader;
-  const available = album.photos.filter(matchesPhotoFilter);
+  const available = album.photos;
   const requested = available.find(item => item.path === want);
   if (!available.some(item => item.caption.trim()) || (requested && !requested.caption.trim())) B.captioned = false;
   B.reader.photoPath = requested?.path ?? (!(album.intro || "").trim() ? readerPhotos()[0]?.path : null) ?? null;
@@ -321,8 +317,7 @@ function startReader() {
 }
 
 function readerPhotos() {
-  return (B.reader.album.photos || []).filter(photo =>
-    matchesPhotoFilter(photo) && (S.photoFilter !== "all" || !B.captioned || photo.caption.trim()));
+  return (B.reader.album.photos || []).filter(photo => !B.captioned || photo.caption.trim());
 }
 function readerStep(delta, wrap = false) {
   if (!B.reader.album.photos) return;
@@ -392,7 +387,7 @@ function renderReader() {
   }
   const photos = readerPhotos();
   const photo = photos.find(item => item.path === photoPath);
-  const image = photo || photos[0] || (S.photoFilter === "all" ? album.photos[0] : null);
+  const image = photo || photos[0] || album.photos[0];
   const overlay = S.state.readingLayout === "overlay";
   const fullScreen = document.fullscreenElement === reader;
   reader.classList.toggle("reader-photo-mode", !!photo);
@@ -404,7 +399,7 @@ function renderReader() {
     <button class="b small solid" id="readerBack">← Zpět na alba</button>
     <strong class="reader-album">${esc(albumTitle(album))}</strong>
     ${photo ? "" : '<label>Vzhled <select id="readerLayout"><option value="book">Kniha</option><option value="overlay">Fotka přes celou plochu</option></select></label>'}
-    ${S.photoFilter === "all" ? `<label class="toggle"><input id="captionOnly" type="checkbox" ${B.captioned ? "checked" : ""}> Jen fotky s popiskem</label>` : ""}
+    <label class="toggle"><input id="captionOnly" type="checkbox" ${B.captioned ? "checked" : ""}> Jen fotky s popiskem</label>
     <button class="b small" id="autoPlay" ${photos.length ? "" : "disabled"}>${B.autoplay ? "Zastavit přehrávání" : "Přehrávat samo"}</button>
     <button class="b small" id="fullScreen">${fullScreen ? "Ukončit celou obrazovku" : "Celá obrazovka"}</button>
     ${caption ? `<button class="b small" id="toggleCaption">${B.captionVisible ? "Skrýt popisek" : "Ukázat popisek"}</button>` : ""}
