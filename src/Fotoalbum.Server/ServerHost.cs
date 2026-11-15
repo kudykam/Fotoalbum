@@ -186,7 +186,7 @@ public static class ServerHost
         });
 
         api.MapGet("/reading/albums", () => Results.Json(s.GetReadingAlbums()));
-        api.MapGet("/reading/album", (string? path, CancellationToken ct) => Results.Json(s.GetReadingAlbum(path ?? "", ct)));
+        api.MapGet("/reading/album", (string? path, bool? quick, CancellationToken ct) => Results.Json(s.GetReadingAlbum(path ?? "", ct, quick ?? false)));
         api.MapGet("/search/index", () => Results.Json(s.GetSearchIndex()));
         api.MapGet("/index/status", () => Results.Json(s.IndexStatus));
         api.MapPut("/reading/intro", (AlbumIntroRequest r) =>
@@ -201,8 +201,8 @@ public static class ServerHost
         });
 
         api.MapGet("/tree", () => Results.Json(s.GetTree()));
-        api.MapGet("/folder", (string? path) => Results.Json(s.OpenFolder(path ?? "")));
-        api.MapPost("/folder/kind", (FolderKindRequest r) => { s.SetFolderKind(r.Path, r.Kind); return Results.Ok(); });
+        api.MapGet("/folder", (string? path, bool? quick, CancellationToken ct) => Results.Json(s.OpenFolder(path ?? "", quick ?? false, ct)));
+        api.MapPost("/folder/kind", (FolderKindRequest r) => { s.SetFolderKinds(r.Paths ?? [r.Path], r.Kind); return Results.Ok(); });
         api.MapPost("/folder/complete", (FolderCompletionRequest r) => Results.Json(s.CompleteFolder(r.Path, r.UndoBatch)));
 
         api.MapGet("/photo", (string path) => Results.Json(s.GetPhoto(path)));
@@ -283,7 +283,7 @@ public sealed record TranscribeRequest(string Audio, string? Previous);
 public sealed record ImproveRequest(string Path, string? Dictation);
 public sealed record FixRequest(string Path, string? Caption, string? Instruction);
 public sealed record SettingsRequest(string? PhotoRoot, string? ExifToolPath, bool? AutoImport, int? TextSize);
-public sealed record FolderKindRequest(string Path, string? Kind);
+public sealed record FolderKindRequest(string Path, string? Kind, List<string>? Paths = null);
 public sealed record FolderCompletionRequest(string Path, string? UndoBatch);
 public sealed record CaptionRequest(string Path, string? Caption, bool IsDraft, string? Source = null, string? Title = null, string? Raw = null);
 public sealed record FlagsRequest(string Path, bool? Skip, bool? MarkedDelete, int? Rotation);

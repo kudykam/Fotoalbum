@@ -144,6 +144,36 @@ public sealed class CatalogDb : IDisposable
         return result;
     }
 
+    public List<PhotoRecord> GetPhotosUnder(string folder)
+    {
+        lock (_lock)
+        {
+            var pattern = folder.Replace("!", "!!").Replace("%", "!%").Replace("_", "!_") + "/%";
+            using var cmd = Cmd(folder.Length == 0 ? "SELECT * FROM photos" : "SELECT * FROM photos WHERE path LIKE $prefix ESCAPE '!'");
+            if (folder.Length > 0) cmd.Parameters.AddWithValue("$prefix", pattern);
+            using var reader = cmd.ExecuteReader();
+            var photos = new List<PhotoRecord>();
+            while (reader.Read()) photos.Add(Read(reader));
+            return photos;
+        }
+    }
+
+    private const string CompletionPrefix = "completed_folder:";
+    private static string CompletionKey(string folder) => CompletionPrefix + folder;
+
+    public Dictionary<string, string> GetCompletionBatches()
+    {
+        lock (_lock)
+        {
+            using var cmd = Cmd("SELECT key, value FROM app_state WHERE substr(key, 1, $length)=$prefix AND value IS NOT NULL",
+                ("$length", CompletionPrefix.Length), ("$prefix", CompletionPrefix));
+            using var reader = cmd.ExecuteReader();
+            var batches = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            while (reader.Read()) batches[reader.GetString(0)[CompletionPrefix.Length..]] = reader.GetString(1);
+            return batches;
+        }
+    }
+
     public PhotoRecord? GetPhoto(string path) => GetPhotos([path]).GetValueOrDefault(path);
 
     public PhotoRecord GetOrCreate(string path) => GetPhoto(path) ?? new PhotoRecord { Path = path };
@@ -179,7 +209,7 @@ public sealed class CatalogDb : IDisposable
             rec.FileSize = size;
             rec.FileMtime = mtime;
             rec.Imported = true;
-            Upsert(rec);
+            Upsert(rec, preserveTimestamp: rec.Status == PhotoStatus.Skip);
         }
     }
 
@@ -221,12 +251,13 @@ public sealed class CatalogDb : IDisposable
     }
 
     /// <summary>Hromadná změna příznaku Skip v jedné transakci. Při vrácení se zachovají mezitím upravené fotky.</summary>
-    public (string Batch, List<string> Paths) SetFolderSkipped(List<string> paths, string? undoBatch)
+    public (string Batch, List<string> Paths) SetFolderSkipped(List<string> paths, string? undoBatch, string? folder = null)
     {
         lock (_lock)
         {
             var records = GetPhotos(paths);
-            var batch = DateTime.UtcNow.ToString("O");
+            var batch = undoBatch is null && folder is not null ? GetState(CompletionKey(folder)) : null;
+            batch ??= DateTime.UtcNow.ToString("O");
             using var tx = _db.BeginTransaction();
             using var cmd = Cmd(undoBatch is null
                 ? """
@@ -249,6 +280,18 @@ public sealed class CatalogDb : IDisposable
                     continue;
                 pathParameter.Value = path;
                 if (cmd.ExecuteNonQuery() != 0) changed.Add(path);
+            }
+            if (folder is not null && (changed.Count > 0 || undoBatch is not null))
+            {
+                var key = CompletionKey(folder);
+                if (undoBatch is null)
+                    SetStateLocked(key, batch, tx);
+                else
+                {
+                    using var clear = Cmd("DELETE FROM app_state WHERE key=$k AND value=$v", ("$k", key), ("$v", undoBatch));
+                    clear.Transaction = tx;
+                    clear.ExecuteNonQuery();
+                }
             }
             tx.Commit();
             return (batch, changed);
@@ -372,13 +415,23 @@ public sealed class CatalogDb : IDisposable
         }
     }
 
-    public void SetFolderKind(string path, string? kind)
+    public void SetFolderKind(string path, string? kind) => SetFolderKinds([path], kind);
+
+    public void SetFolderKinds(IEnumerable<string> paths, string? kind)
     {
         lock (_lock)
         {
+            using var tx = _db.BeginTransaction();
             using var cmd = Cmd("INSERT INTO folders(path, kind) VALUES($p,$k) ON CONFLICT(path) DO UPDATE SET kind=$k",
-                ("$p", path), ("$k", (object?)kind ?? DBNull.Value));
-            cmd.ExecuteNonQuery();
+                ("$k", (object?)kind ?? DBNull.Value));
+            cmd.Transaction = tx;
+            var path = cmd.Parameters.AddWithValue("$p", "");
+            foreach (var item in paths)
+            {
+                path.Value = item;
+                cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
         }
     }
 
@@ -426,10 +479,11 @@ public sealed class CatalogDb : IDisposable
 
     public void SetState(string key, string? value) { lock (_lock) SetStateLocked(key, value); }
 
-    private void SetStateLocked(string key, string? value)
+    private void SetStateLocked(string key, string? value, SqliteTransaction? transaction = null)
     {
         using var cmd = Cmd("INSERT INTO app_state(key, value) VALUES($k,$v) ON CONFLICT(key) DO UPDATE SET value=$v",
             ("$k", key), ("$v", (object?)value ?? DBNull.Value));
+        cmd.Transaction = transaction;
         cmd.ExecuteNonQuery();
     }
 
@@ -450,7 +504,7 @@ public sealed class CatalogDb : IDisposable
 
     // ---------- pomocné ----------
 
-    private void Upsert(PhotoRecord p)
+    private void Upsert(PhotoRecord p, bool preserveTimestamp = false)
     {
         using var cmd = Cmd("""
             INSERT INTO photos(path, caption, is_draft, raw_dictation, skip, marked_delete, rotation, everyday, date_taken,
@@ -458,7 +512,7 @@ public sealed class CatalogDb : IDisposable
             VALUES($path,$caption,$draft,$raw,$skip,$del,$rot,$every,$date,$size,$mtime,$imp,$fcap,$err,$now,$src,$title)
             ON CONFLICT(path) DO UPDATE SET caption=$caption, is_draft=$draft, raw_dictation=$raw, skip=$skip,
               marked_delete=$del, rotation=$rot, everyday=$every, date_taken=$date, file_size=$size, file_mtime=$mtime,
-              imported=$imp, file_caption=$fcap, write_error=$err, updated_at=$now, caption_source=$src, title=$title
+              imported=$imp, file_caption=$fcap, write_error=$err, updated_at=CASE WHEN $preserve THEN photos.updated_at ELSE $now END, caption_source=$src, title=$title
             """,
             ("$path", p.Path), ("$caption", p.Caption), ("$draft", p.IsDraft ? 1 : 0), ("$raw", p.RawDictation),
             ("$skip", p.Skip ? 1 : 0), ("$del", p.MarkedDelete ? 1 : 0), ("$rot", p.Rotation),
@@ -466,7 +520,7 @@ public sealed class CatalogDb : IDisposable
             ("$date", (object?)p.DateTaken ?? DBNull.Value), ("$size", p.FileSize), ("$mtime", p.FileMtime),
             ("$imp", p.Imported ? 1 : 0), ("$fcap", (object?)p.FileCaption ?? DBNull.Value),
             ("$err", (object?)p.WriteError ?? DBNull.Value), ("$now", DateTime.UtcNow.ToString("O")),
-            ("$src", p.CaptionSource), ("$title", (object?)p.Title ?? DBNull.Value));
+            ("$preserve", preserveTimestamp), ("$src", p.CaptionSource), ("$title", (object?)p.Title ?? DBNull.Value));
         cmd.ExecuteNonQuery();
     }
 

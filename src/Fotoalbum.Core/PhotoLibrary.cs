@@ -97,15 +97,19 @@ public sealed class PhotoLibrary
         return r == "." ? "" : r;
     }
 
-    public FolderNode ScanTree()
+    public FolderNode ScanTree() => ScanTree("");
+
+    public FolderNode ScanTree(string folder, CancellationToken ct = default)
     {
-        var root = new FolderNode("", Path.GetFileName(Root.TrimEnd(Path.DirectorySeparatorChar)));
-        Fill(root, Root);
+        var dir = Resolve(folder);
+        var root = new FolderNode(ToRelative(dir), Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar)));
+        Fill(root, dir, ct);
         return root;
     }
 
-    private void Fill(FolderNode node, string dir)
+    private void Fill(FolderNode node, string dir, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         try
         {
             foreach (var f in Directory.EnumerateFiles(dir))
@@ -115,7 +119,7 @@ public sealed class PhotoLibrary
                 var name = Path.GetFileName(d);
                 if (IsIgnoredDir(name)) continue;
                 var child = new FolderNode(ToRelative(d), name);
-                Fill(child, d);
+                Fill(child, d, ct);
                 if (child.TotalPhotos > 0) node.Children.Add(child);
             }
         }
