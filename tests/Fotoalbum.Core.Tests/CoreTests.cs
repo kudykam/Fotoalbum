@@ -318,14 +318,50 @@ public class FotoalbumServiceTests
             s.SetFolderKind("Afrika", FolderKind.Vacation);
             var albums = s.GetReadingAlbums();
             var a = Assert.Single(albums);
-            Assert.Equal(("Afrika", 3), (a.Path, a.Count));
+            Assert.Equal(("Afrika", 0), (a.Path, a.Count));
+            Assert.Null(a.Cover);
             // dlaždice se skládá jen z databáze – fotky se při tom nečtou
             Assert.DoesNotContain(s.Db.GetPhotos(["Afrika/IMG_1.jpg", "Afrika/IMG_2.jpg"]).Values, r => r.Imported);
+
+            var quick = s.GetReadingAlbum("Afrika", default, quick: true);
+            Assert.Equal(3, quick.Photos.Count);
+            Assert.All(quick.Photos, photo => Assert.Empty(photo.Caption));
 
             var album = s.GetReadingAlbum("Afrika", default);
             Assert.Equal(["Afrika/IMG_2.jpg", "Afrika/IMG_1.jpg", "Afrika/Kena/K1.jpg"], album.Photos.Select(p => p.Path));
             Assert.Equal("Popisek z jiného programu", album.Photos[0].Caption);
             Assert.Equal("1998-07-14", s.GetReadingAlbums().Single().From?[..10]);
+        }
+    }
+
+    [Fact]
+    public void Chybejici_dovolena_nevytvori_dlazdici_ze_stareho_zaznamu()
+    {
+        var (t, s) = Setup();
+        using (t) using (s)
+        {
+            s.SetFolderKind("temp", FolderKind.Vacation);
+            Assert.Empty(s.GetReadingAlbums());
+            Assert.Equal(FolderKind.Vacation, s.KindOf("temp"));
+        }
+    }
+
+    [Fact]
+    public void Hotovou_slozku_lze_vratit_po_obnoveni_stromu()
+    {
+        var (t, s) = Setup();
+        using (t) using (s)
+        {
+            var marked = s.CompleteFolder("Afrika", null);
+            Assert.Equal(["Afrika/IMG_1.jpg"], marked.Paths);
+            var folder = s.GetTree().Children.Single(child => child.Path == "Afrika");
+            Assert.True(folder.Complete);
+            Assert.Equal(marked.Batch, folder.CompletionBatch);
+            var undone = s.CompleteFolder("Afrika", folder.CompletionBatch);
+            Assert.Equal(marked.Paths, undone.Paths);
+            Assert.Equal(PhotoStatus.None, s.Db.GetPhoto("Afrika/IMG_1.jpg")!.Status);
+            Assert.Equal(PhotoStatus.Done, s.Db.GetPhoto("Afrika/IMG_2.jpg")!.Status);
+            Assert.Null(s.GetTree().Children.Single(child => child.Path == "Afrika").CompletionBatch);
         }
     }
 

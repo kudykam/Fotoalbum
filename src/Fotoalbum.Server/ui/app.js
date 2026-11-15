@@ -6,10 +6,9 @@ const $ = id => document.getElementById(id);
 const S = {
   state: null, host: "web", canPick: false,
   tree: null, open: new Set([""]), browseOpen: new Set([""]), view: "work", folder: null, photos: [], cur: null,
-  photoFilter: "all",     // Vše / Nepopsané / Popsané (jen v Pracovně)
+  folderFilter: "all",    // Vše / Nepopsané / Popsané ve stromu
   sort: (() => { try { return localStorage.getItem("fotoalbum-razeni") || "name"; } catch { return "name"; } })(),
   side: true, menu: false,
-  keep: new Set(),        // fotky vyřízené během zapnutého filtru – zůstanou vidět do přepnutí filtru
   saved: "",              // uložený popisek aktuální fotky
   busy: false, closed: false,
   hist: [], hi: 0,        // historie akcí pro Zpět/Znovu (jen v aktuální složce, do zavření okna)
@@ -17,9 +16,9 @@ const S = {
 const DRAFT_KEY = "fotoalbum-rozepsano";
 
 /* ---------- API ---------- */
-async function api(method, url, body, keepalive) {
+async function api(method, url, body, keepalive, signal) {
   const res = await fetch(url, {
-    method, credentials: "same-origin", keepalive: !!keepalive,
+    method, credentials: "same-origin", keepalive: !!keepalive, signal,
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -63,6 +62,12 @@ function draftClear() { try { localStorage.removeItem(DRAFT_KEY); } catch { } }
 function draftGet() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; } }
 const isDirty = () => !!S.cur && $("ta").value !== S.saved;
 const handled = p => p.status === "done" || p.status === "manual" || p.status === "skip";
+const matchesFolderFilter = folder => {
+  if (S.folderFilter === "all") return true;
+  if (!folder.ownTotal) return false;
+  const complete = folder.complete || folder.ownHandled === folder.ownTotal;
+  return S.folderFilter === "done" ? complete : !complete;
+};
 /** Stav popisku pro historii Zpět/Znovu: text, původ (ai/manual/file) a nadpis. */
 const snap = p => ({ c: S.saved, s: p.source || "manual", t: p.source === "ai" ? p.title : null });
 
@@ -200,7 +205,13 @@ const ico = {
   open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>',
   shut: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>',
 };
-async function loadTree() { S.tree = await api("GET", "/api/tree"); renderTree(); }
+let treeRequest = 0;
+const markedFolders = new Set();
+async function loadTree() {
+  const id = ++treeRequest;
+  const tree = await api("GET", "/api/tree");
+  if (id === treeRequest) { S.tree = tree; renderTree(); }
+}
 function firstFolderWithPhotos(n) {
   if (!n) return null;
   if (n.total > 0 && n.children.length === 0) return n.path;
@@ -232,7 +243,14 @@ function renderTree() {
   const browse = S.view !== "work";
   const selected = browse ? (B.reader ? B.reader.album.path : null) : S.folder;
   const expanded = S.open;
-  const shown = () => true;
+  const matches = new Set();
+  function matchBranch(folder) {
+    for (const child of folder.children) matchBranch(child);
+    if (matchesFolderFilter(folder) || folder.children.some(child => matches.has(child.path)))
+      matches.add(folder.path);
+  }
+  matchBranch(S.tree);
+  const shown = folder => matches.has(folder.path);
   const choose = path => {
     if (browse) { const f = findNode(S.tree, path); if (f && f.total) openReader({ path, name: f.name || S.tree.name, intro: "" }); }
     else openFolder(path).catch(fail);
@@ -262,7 +280,7 @@ function renderTree() {
     }
     const b = document.createElement("button");
     const vacation = f.kind === "dovolena";
-    b.className = "node" + (vacation ? " vacation" : "");
+    b.className = "node" + (vacation ? " vacation" : "") + (markedFolders.has(f.path) ? " multi-selected" : "");
     b.title = (f.name || "Všechny fotky") + (vacation ? " – dovolená" : "") + (f.ownTotal ? "" : " (fotky jsou jen v podsložkách)");
     b.setAttribute("aria-current", selected === f.path);
     // počet = jen fotky přímo v této složce (podsložky mají vlastní)
@@ -273,7 +291,16 @@ function renderTree() {
       event.preventDefault();
       if (!S.busy && !$("modalHost").firstChild) showFolderMenu(event, f, b);
     };
-    b.onclick = () => choose(f.path);
+    b.onclick = event => {
+      if (event.ctrlKey) {
+        if (markedFolders.has(f.path)) markedFolders.delete(f.path);
+        else markedFolders.add(f.path);
+        b.classList.toggle("multi-selected", markedFolders.has(f.path));
+        return;
+      }
+      if (markedFolders.size) { markedFolders.clear(); renderTree(); }
+      choose(f.path);
+    };
     row.append(b); li.append(row);
     if (kids.length && expanded.has(f.path)) {
       const ul = document.createElement("ul");
@@ -309,21 +336,32 @@ function renderTree() {
   el.scrollTop = scrollTop;
 }
 
-/** Nabídka pravého tlačítka na složce: dovolená ano/ne, v Pracovně i „Označit složku jako hotovou“. */
+/** Nabídka pravého tlačítka na složce: dovolená ano/ne a stav dokončení. */
 function showFolderMenu(event, folder, anchor) {
   const menu = $("folderMenu");
   const vacation = folder.kind === "dovolena";
-  const items = [[vacation ? "Zrušit označení dovolené" : "🌴 Označit jako dovolenou", () => setFolderKind(folder.path, vacation ? "bezne" : "dovolena")]];
-  if (S.view === "work" && folder.ownTotal > 0 && !folder.complete)
-    items.push(["✓ Označit složku jako hotovou", () => changeFolderCompletion(folder.path)]);
-  menu.replaceChildren(...items.map(([label, fn]) => {
+  const group = markedFolders.has(folder.path) && markedFolders.size > 1 ? [...markedFolders] : null;
+  const items = group ? [
+    [`🌴 Označit vybrané složky jako dovolené (${group.length})`, () => setFolderKind(group, "dovolena")],
+    ["Zrušit označení dovolené u vybraných složek", () => setFolderKind(group, "bezne")],
+  ] : [[vacation ? "Zrušit označení dovolené" : "🌴 Označit jako dovolenou", () => setFolderKind([folder.path], vacation ? "bezne" : "dovolena")]];
+  if (folder.completionBatch)
+    items.push(["Vrátit označení složky jako hotové", () => changeFolderCompletion(folder.path, folder.completionBatch)]);
+  if (!folder.complete || !folder.completionBatch)
+    items.push(["✓ Označit složku jako hotovou",
+      folder.ownTotal > 0 && !folder.complete ? () => changeFolderCompletion(folder.path) : null,
+      folder.complete ? "Složka už je hotová." : "Složka nemá vlastní fotky."]);
+
+  menu.replaceChildren(...items.map(([label, fn, reason]) => {
     const button = document.createElement("button");
     button.type = "button"; button.className = "b"; button.textContent = label;
-    button.onclick = () => { menu.hidden = true; anchor.focus({ preventScroll: true }); Promise.resolve(fn()).catch(fail); };
+    button.disabled = !fn;
+    if (reason && !fn) button.title = reason;
+    if (fn) button.onclick = () => { menu.hidden = true; anchor.focus({ preventScroll: true }); Promise.resolve(fn()).catch(fail); };
     return button;
   }));
   const note = document.createElement("small");
-  note.textContent = "Platí jen pro tuto složku, ne pro podsložky.";
+  note.textContent = "Více složek vyberete pomocí Ctrl+klik.";
   menu.append(note);
   menu.hidden = false;
   const rect = anchor.getBoundingClientRect();
@@ -333,17 +371,29 @@ function showFolderMenu(event, folder, anchor) {
   menu.firstElementChild.focus({ preventScroll: true });
 }
 /** Označí / odznačí složku jako dovolenou (jen tuto složku). */
-async function setFolderKind(path, kind) {
-  await api("POST", "/api/folder/kind", { path, kind });
-  await loadTree();
-  if (S.view === "work" && S.folder != null) await refreshFolderMeta();
-  else if (S.view !== "work") loadAlbums();
-  toast(kind === "dovolena" ? "Složka je označená jako dovolená." : "Označení dovolené zrušeno.");
+async function setFolderKind(paths, kind) {
+  await api("POST", "/api/folder/kind", { path: paths[0], paths, kind });
+  ++treeRequest;
+  ++B.loadId;
+  for (const path of paths) {
+    const folder = findNode(S.tree, path);
+    if (folder) folder.kind = kind;
+  }
+  if (paths.includes(S.folder)) S.photos.forEach(photo => { photo.vacation = kind === "dovolena"; });
+  if (paths.length > 1) markedFolders.clear();
+  B.albums = B.albums?.filter(album => !paths.includes(album.path)) ?? null;
+  B.index = null;
+  renderTree();
+  if (S.view !== "work") loadAlbums();
+  toast(kind === "dovolena" ? "Označení dovolené uloženo." : "Označení dovolené zrušeno.");
 }
 
 async function changeFolderCompletion(path, undoBatch = null) {
-  if (S.busy || S.view !== "work") return;
-  if (path === S.folder && !(await guardLeave())) return;
+  if (S.busy) return;
+  const currentFolder = path === S.folder;
+  if (currentFolder && folderMetadataLoading) return toast("Nejdřív počkejte na načtení popisků.");
+  const editingFolder = currentFolder && S.view === "work";
+  if (editingFolder && !(await guardLeave())) return;
   if (S.busy) return;
   S.busy = true;
   renderButtons();
@@ -351,7 +401,7 @@ async function changeFolderCompletion(path, undoBatch = null) {
   const textarea = $("ta");
   textarea.readOnly = true;
   try {
-    if (path === S.folder) await commit();
+    if (editingFolder) await commit();
     toast(undoBatch ? "Vracím označení fotek…" : "Označuji složku jako hotovou…");
     result = await api("POST", "/api/folder/complete", { path, undoBatch });
     if (path === S.folder) {
@@ -362,7 +412,6 @@ async function changeFolderCompletion(path, undoBatch = null) {
         if (updated.has(photo.path)) Object.assign(photo, updated.get(photo.path));
         if (changed.has(photo.path)) {
           if (undoBatch) photo.status = "none";
-          S.keep.delete(photo.path);
         }
       }
       S.saved = cur()?.caption || "";
@@ -373,6 +422,9 @@ async function changeFolderCompletion(path, undoBatch = null) {
     S.busy = false;
     renderButtons();
   }
+  const folder = findNode(S.tree, path);
+  if (folder && (undoBatch || result.paths.length)) folder.completionBatch = undoBatch ? null : result.batch;
+  renderTree();
   loadTree().catch(fail);
   if (undoBatch) {
     toast(`Vráceno u ${result.paths.length} fotek.`);
@@ -383,24 +435,26 @@ async function changeFolderCompletion(path, undoBatch = null) {
     toast("Ve složce nejsou fotky k označení.");
   }
 }
-async function refreshFolderMeta() {
-  await loadTree();
-  const r = await api("GET", "/api/folder?path=" + q(S.folder));
-  const byPath = new Map(r.photos.map(p => [p.path, p]));
-  S.photos = S.photos.map(p => Object.assign(p, byPath.get(p.path) || {}));
-  renderAll(false);
-}
-
 /* ---------- složka a fotky ---------- */
+let folderLoad;
+let folderMetadataLoading = false;
 async function openFolder(path, initial) {
   if (S.busy) return;
   if (!initial) { if (!(await guardLeave())) return; await commit(); closeMenu(); }
   if (S.cur) api("POST", "/api/photo/leave", { folder: S.folder, path: S.cur.path }).catch(() => {});
+  folderLoad?.abort();
+  const controller = new AbortController();
+  folderLoad = controller;
   S.folder = path; expandTo(path, S.open, true); renderTree();
-  S.hist = []; S.hi = 0; S.keep.clear();
+  S.hist = []; S.hi = 0;
+  S.photos = []; S.cur = null; S.saved = "";
+  folderMetadataLoading = true;
+  renderAll(true);
   $("loading").hidden = false;
+  const url = "/api/folder?path=" + q(path);
   try {
-    const r = await api("GET", "/api/folder?path=" + q(path));
+    const r = await api("GET", url + "&quick=true", undefined, false, controller.signal);
+    if (controller.signal.aborted) return;
     S.photos = r.photos; stripKey = "";
     S.cur = (r.lastPhoto && S.photos.find(p => p.path === r.lastPhoto)) || null;
     S.saved = cur() ? S.cur.caption : "";
@@ -411,13 +465,29 @@ async function openFolder(path, initial) {
       $("ta").value = d.text; renderCaption(false); renderButtons();
       toast("Obnoven rozepsaný text, který se minule nestihl uložit.", null, 5000);
     } else if (initial && S.cur) toast("Pokračujete tam, kde jste minule skončili.", null, 3000);
+    $("loading").hidden = true;
+    if (!S.photos.length) { folderMetadataLoading = false; loadTree().catch(() => {}); return; }
+    const detailed = await api("GET", url, undefined, false, controller.signal);
+    if (controller.signal.aborted || S.folder !== path) return;
+    const photosByPath = new Map(S.photos.map(photo => [photo.path, photo]));
+    const before = S.cur, previousCaption = S.saved, dirty = isDirty();
+    S.photos = detailed.photos.map(photo => {
+      const existing = photosByPath.get(photo.path);
+      if (!existing || (existing === before && dirty) || existing.writePending) return existing || photo;
+      return Object.assign(existing, photo);
+    });
+    if (dirty && !S.photos.includes(before)) S.photos.unshift(before);
+    S.saved = cur()?.caption || "";
+    folderMetadataLoading = false;
+    renderAll(before !== S.cur || (!dirty && previousCaption !== S.saved));
     loadTree().catch(() => {});
-  } catch (e) { fail(e); } finally { $("loading").hidden = true; }
+  } catch (error) {
+    if (!controller.signal.aborted) fail(error);
+  } finally {
+    if (folderLoad === controller) $("loading").hidden = true;
+  }
 }
-function visible() {
-  const hide = p => S.photoFilter === "undone" ? handled(p) : S.photoFilter === "done" ? !handled(p) : false;
-  return S.photos.filter(p => !hide(p) || S.keep.has(p.path));
-}
+function visible() { return S.photos; }
 function cur() { const v = visible(); if (!S.cur || !v.includes(S.cur)) { S.cur = v[0] || null; S.saved = S.cur ? S.cur.caption : ""; } return S.cur; }
 const byPath = path => S.photos.find(p => p.path === path);
 
@@ -469,7 +539,6 @@ async function saveCaption(p, text, source, title, raw) {
   const d = await api("PUT", "/api/photo/caption", { path: p.path, caption: text, isDraft: false, source: source || "manual", title: title || null, raw: raw ?? null });
   Object.assign(p, d);
   if (S.cur === p) S.saved = d.caption;
-  if (S.photoFilter !== "all") S.keep.add(p.path); // změněná fotka nezmizí hned pod rukama
   pollWrite(p);
   return d;
 }
@@ -630,10 +699,8 @@ function renderStage(newPhoto) {
   if (!p) {
     img.hidden = true; $("meta").innerHTML = "";
     const e = document.createElement("div"); e.className = "empty";
-    e.innerHTML = S.photos.length ? `Ve složce nejsou žádné ${S.photoFilter === "done" ? "popsané" : "nepopsané"} fotky.<button class="b small solid" id="showAll">Ukázat všechny fotky</button>`
-      : "V této složce nejsou žádné fotky. Vyberte jinou složku vlevo.";
+    e.textContent = "V této složce nejsou žádné fotky. Vyberte jinou složku vlevo.";
     st.append(e);
-    const b = $("showAll"); if (b) b.onclick = () => { setPhotoFilter("all"); stripKey = ""; renderAll(true); };
     return;
   }
   img.hidden = false;
@@ -660,7 +727,7 @@ function fitImage() {
 
 function renderCaption(newPhoto) {
   const p = S.cur, ta = $("ta");
-  ta.disabled = !p || p.status === "del";
+  ta.disabled = !p || p.status === "del" || folderMetadataLoading;
   if (newPhoto) ta.value = p ? p.caption : "";
   const dirty = isDirty();
   const st = !p ? "none" : dirty ? (ta.value.trim() ? "edit" : "none") : p.status;
@@ -695,9 +762,9 @@ function renderCaption(newPhoto) {
   if (p && p.writeError) err.textContent = "Do fotky se nepodařilo zapsat: " + p.writeError + " Popisek je uložený v aplikaci a zápis se zkusí znovu.";
 }
 function renderButtons() {
-  const p = S.cur, lock = !p || S.busy;
-  $("prev").disabled = $("pL").disabled = lock || !neighbour(-1);
-  $("next").disabled = $("pR").disabled = lock || !neighbour(1);
+  const p = S.cur, lock = !p || S.busy || folderMetadataLoading;
+  $("prev").disabled = $("pL").disabled = !p || S.busy || !neighbour(-1);
+  $("next").disabled = $("pR").disabled = !p || S.busy || !neighbour(1);
   $("skip").disabled = lock || p.status === "del";
   $("undo").disabled = lock || !(isDirty() || S.hi > 0);
   $("redo").disabled = lock || isDirty() || S.hi >= S.hist.length;
@@ -707,26 +774,25 @@ function renderButtons() {
   $("aiRow").hidden = !(S.ai && S.ai.hasKey);
   const fixMode = p && p.source === "ai" && !isDirty() && S.saved.trim();
   $("mic").classList.toggle("on", R.on);
-  $("mic").disabled = !p || p.status === "del" || (S.busy && !R.on);
+  $("mic").disabled = (lock && !R.on) || p?.status === "del";
   $("micT").textContent = R.on ? "Zastavit " + fmtTime(performance.now() - R.started) : fixMode ? "Diktovat úpravu" : "Diktovat";
   $("ai").disabled = (lock && !R.on) || S.aiWorking || !($("ta").value.trim() || S.fixText || R.on || R.pending > 0);
   const redoMode = p && p.source === "ai" && !isDirty() && !S.fixText;
   $("aiT").textContent = S.aiWorking ? "Upravuji…" : S.fixText ? "Použít úpravu" : redoMode ? "Upravit znovu" : "Korektura";
   $("ok").disabled = lock || p.status === "del" || S.aiWorking;
   $("okT").textContent = p && !neighbour(1) ? "Schválit (poslední fotka)" : "Schválit a další fotka";
-  $("hint").textContent = R.on ? "Až domluvíte, stiskněte Zastavit nebo rovnou Korekturu." : "Text můžete kdykoli psát nebo opravovat přímo v poli.";
+  $("hint").textContent = folderMetadataLoading ? "Načítám metadata pro úpravy popisků…" : R.on ? "Až domluvíte, stiskněte Zastavit nebo rovnou Korekturu." : "Text můžete kdykoli psát nebo opravovat přímo v poli.";
   if (R.on) { $("prev").disabled = $("next").disabled = $("skip").disabled = $("undo").disabled = $("redo").disabled = true; }
 }
 
 /* ---------- akce na fotce ---------- */
 /** Změní příznaky aktuální fotky a zapíše to do historie (before = jak to bylo). */
 async function setFlags(after, before, then) {
-  const p = S.cur; if (!p || S.busy) return;
+  const p = S.cur; if (!p || S.busy || folderMetadataLoading) return;
   closeMenu();
   await run(async () => {
     await commit();
     Object.assign(p, await api("POST", "/api/photo/flags", { path: p.path, ...after }));
-    if (S.photoFilter !== "all") S.keep.add(p.path);
     record({ t: "flags", path: p.path, before, after });
     if (then) await then();
   });
@@ -1081,12 +1147,12 @@ $("tree").addEventListener("scroll", () => { $("folderMenu").hidden = true; });
 $("closeBtn").onclick = requestClose;
 $("gearBtn").onclick = () => { if (S.state && S.state.configured) openSettings(); };
 $("sideBtn").onclick = () => { S.side = !S.side; $("work").classList.toggle("nosidebar", !S.side); requestAnimationFrame(() => { fitImage(); drawTrack(); }); };
-function setPhotoFilter(value) {
-  S.photoFilter = value; S.keep.clear(); stripKey = "";
-  document.querySelectorAll("#photoFilter button").forEach(b => b.setAttribute("aria-pressed", b.dataset.f === value));
-  renderAll(true);
+function setFolderFilter(value) {
+  S.folderFilter = value;
+  document.querySelectorAll("#folderFilter button").forEach(button => button.setAttribute("aria-pressed", button.dataset.f === value));
+  renderTree();
 }
-document.querySelectorAll("#photoFilter button").forEach(b => b.onclick = () => setPhotoFilter(b.dataset.f));
+document.querySelectorAll("#folderFilter button").forEach(button => button.onclick = () => setFolderFilter(button.dataset.f));
 $("folderSort").value = S.sort;
 $("folderSort").onchange = e => {
   S.sort = e.target.value;
@@ -1102,6 +1168,11 @@ $("ta").addEventListener("input", () => {
 document.addEventListener("keydown", e => {
   if (e.defaultPrevented || $("modalHost").innerHTML) return;
   if (e.key === "Escape") {
+    if (document.fullscreenElement) {
+      e.preventDefault();
+      document.exitFullscreen().catch(fail);
+      return;
+    }
     if (!$("folderMenu").hidden) { $("folderMenu").hidden = true; return; }
     closeMenu();
     // Esc zavře nastavení a vrátí do Pracovny
@@ -1114,15 +1185,15 @@ document.addEventListener("keydown", e => {
   if (e.ctrlKey && e.altKey && e.code === "KeyS") { e.preventDefault(); openSettings(); return; }
   if ($("work").hidden) return;
   if (S.view !== "work") { readerKey(e); return; }
-  if (e.key === "F2") { e.preventDefault(); if (S.ai && S.ai.hasKey) (R.on ? recStop() : recStart()); return; }
+  if (e.key === "F2") { e.preventDefault(); if (!$("mic").disabled && S.ai && S.ai.hasKey) (R.on ? recStop() : recStart()); return; }
   if (e.key === "PageUp") { e.preventDefault(); step(-1); return; }
   if (e.key === "PageDown") { e.preventDefault(); step(1); return; }
   if (/TEXTAREA|INPUT|SELECT/.test(e.target.tagName)) return;
   if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
   else if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
-  else if (e.key === "b" || e.key === "B") skipPhoto();
-  else if (e.ctrlKey && (e.key === "z" || e.key === "Z")) { e.preventDefault(); undo(); }
-  else if (e.ctrlKey && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redo(); }
+  else if ((e.key === "b" || e.key === "B") && !$("skip").disabled) skipPhoto();
+  else if (e.ctrlKey && (e.key === "z" || e.key === "Z")) { e.preventDefault(); if (!$("undo").disabled) undo(); }
+  else if (e.ctrlKey && (e.key === "y" || e.key === "Y")) { e.preventDefault(); if (!$("redo").disabled) redo(); }
 });
 window.addEventListener("beforeunload", () => {
   const p = S.cur;

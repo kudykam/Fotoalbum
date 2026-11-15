@@ -8,7 +8,7 @@ public sealed record StateDto(bool Configured, string? Root, string? RootName, b
 /// <param name="OwnTotal">Fotky přímo ve složce (bez podsložek).</param>
 /// <param name="First">Nejstarší známé datum fotky ve složce i podsložkách (pro řazení podle data).</param>
 public sealed record FolderDto(string Path, string Name, string Kind, bool KindInherited, int Total, int Handled, int Done,
-    List<FolderDto> Children, bool Complete, int OwnTotal = 0, int OwnHandled = 0, string? First = null);
+    List<FolderDto> Children, bool Complete, int OwnTotal = 0, int OwnHandled = 0, string? First = null, string? CompletionBatch = null);
 
 public sealed record FolderCompletionDto(string Batch, List<string> Paths, List<PhotoDto>? Photos);
 
@@ -151,13 +151,14 @@ public sealed class FotoalbumService : IDisposable
         var node = lib.ScanTree();
         var recs = Db.GetPhotos(node.AllPhotoPaths());
         var kinds = Db.GetFolderKinds();
-        return Map(node, FolderKind.Everyday);
+        var completions = Db.GetCompletionBatches();
+        return Map(node);
 
-        FolderDto Map(FolderNode n, string parentKind)
+        FolderDto Map(FolderNode n)
         {
             // druh platí jen pro tu jednu složku – podsložky ho nedědí
             var kind = FolderKind.Normalize(kinds.GetValueOrDefault(n.Path)) ?? FolderKind.Everyday;
-            var children = n.Children.Select(c => Map(c, kind)).ToList();
+            var children = n.Children.Select(Map).ToList();
             int done = 0, handled = 0, total = 0;
             string? first = null;
             foreach (var p in n.PhotoPaths)
@@ -174,7 +175,7 @@ public sealed class FotoalbumService : IDisposable
                 if (c.First is { } d && (first is null || string.CompareOrdinal(d, first) < 0)) first = d;
             return new FolderDto(n.Path, n.Name, kind, false, total + children.Sum(c => c.Total),
                 handled + children.Sum(c => c.Handled), done + children.Sum(c => c.Done), children, total > 0 && handled == total,
-                total, handled, first);
+                total, handled, first, completions.GetValueOrDefault(n.Path));
         }
     }
 
@@ -182,10 +183,13 @@ public sealed class FotoalbumService : IDisposable
     public string KindOf(string folder) =>
         FolderKind.Normalize(Db.GetFolderKinds().GetValueOrDefault(folder)) ?? FolderKind.Everyday;
 
-    public void SetFolderKind(string folder, string? kind)
+    public void SetFolderKind(string folder, string? kind) => SetFolderKinds([folder], kind);
+
+    public void SetFolderKinds(IEnumerable<string> folders, string? kind)
     {
-        Library.Resolve(folder);
-        Db.SetFolderKind(folder, FolderKind.Normalize(kind));
+        var lib = Library;
+        var paths = folders.Select(folder => lib.ToRelative(lib.Resolve(folder))).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        Db.SetFolderKinds(paths, FolderKind.Normalize(kind));
     }
 
     public FolderCompletionDto CompleteFolder(string folder, string? undoBatch)
@@ -193,7 +197,7 @@ public sealed class FotoalbumService : IDisposable
         // Před označením načti i starší popisky uložené jen v souborech.
         var photos = undoBatch is null ? OpenFolder(folder).Photos : null;
         var paths = photos?.Select(photo => photo.Path).ToList() ?? Library.ListPhotos(folder);
-        var (batch, changed) = Db.SetFolderSkipped(paths, undoBatch);
+        var (batch, changed) = Db.SetFolderSkipped(paths, undoBatch, folder);
         if (photos is not null)
         {
             var skipped = new HashSet<string>(changed, StringComparer.OrdinalIgnoreCase);
@@ -203,23 +207,28 @@ public sealed class FotoalbumService : IDisposable
     }
 
     /// <summary>Otevře složku: načte popisky a data ze souborů, které ještě neznáme nebo se změnily.</summary>
-    public FolderPhotosDto OpenFolder(string folder)
+    public FolderPhotosDto OpenFolder(string folder, bool quick = false, CancellationToken ct = default)
     {
         var lib = Library;
         var paths = lib.ListPhotos(folder);
         var recs = Db.GetPhotos(paths);
         var toImport = new List<string>();
-        foreach (var p in paths)
+        if (!quick)
         {
-            var fi = new FileInfo(lib.Resolve(p));
-            if (!recs.TryGetValue(p, out var r) || !r.Imported || r.FileSize != fi.Length || r.FileMtime != fi.LastWriteTimeUtc.Ticks)
-                toImport.Add(p);
+            foreach (var p in paths)
+            {
+                ct.ThrowIfCancellationRequested();
+                var fi = new FileInfo(lib.Resolve(p));
+                if (!recs.TryGetValue(p, out var r) || !r.Imported || r.FileSize != fi.Length || r.FileMtime != fi.LastWriteTimeUtc.Ticks)
+                    toImport.Add(p);
+            }
         }
         if (toImport.Count > 0 && _exif is not null)
         {
             var byFull = toImport.ToDictionary(lib.Resolve, p => p, StringComparer.OrdinalIgnoreCase);
             foreach (var m in _exif.Read(byFull.Keys))
             {
+                ct.ThrowIfCancellationRequested();
                 if (!byFull.TryGetValue(m.Path, out var rel)) continue;
                 var fi = new FileInfo(m.Path);
                 Db.ApplyImport(rel, m.Caption, m.DateTaken, fi.Length, fi.LastWriteTimeUtc.Ticks);
@@ -236,68 +245,52 @@ public sealed class FotoalbumService : IDisposable
         return new FolderPhotosDto(folder, last, list);
     }
 
-    /// <summary>
-    /// Dlaždice hlavní stránky Čtení: jen složky označené jako dovolená. Údaje jen z databáze –
-    /// soubory se nečtou, takže je to okamžité i u velké knihovny.
-    /// </summary>
+    /// <summary>Dlaždice dovolených jsou dostupné už před dokončením indexu fotek.</summary>
     public List<ReadingAlbumSummaryDto> GetReadingAlbums()
     {
         var lib = Library;
-        var root = lib.ScanTree();
-        var kinds = Db.GetFolderKinds();
         var intros = Db.GetAlbumIntros();
-        var vacations = new List<FolderNode>();
-        Collect(root);
-        var recs = Db.GetPhotos(vacations.SelectMany(v => v.AllPhotoPaths()));
         var result = new List<ReadingAlbumSummaryDto>();
-        foreach (var f in vacations)
+        foreach (var (path, kind) in Db.GetFolderKinds())
         {
-            var photos = f.AllPhotoPaths()
-                .Select(p => (Path: p, Rec: recs.GetValueOrDefault(p)))
-                .Where(x => x.Rec is not { MarkedDelete: true })
-                .ToList();
-            if (photos.Count == 0) continue;
-            var dated = photos.Where(x => x.Rec?.DateTaken is not null).OrderBy(x => x.Rec!.DateTaken, StringComparer.Ordinal).ToList();
-            var cover = dated.Count > 0 ? dated[0] : photos[0];
-            result.Add(new ReadingAlbumSummaryDto(f.Path, f.Name, intros.GetValueOrDefault(f.Path) ?? "", photos.Count,
-                cover.Path, cover.Rec?.Rotation ?? 0, dated.FirstOrDefault().Rec?.DateTaken, dated.LastOrDefault().Rec?.DateTaken));
+            if (FolderKind.Normalize(kind) != FolderKind.Vacation) continue;
+            var directory = lib.Resolve(path);
+            if (!Directory.Exists(directory)) continue;
+            var photos = Db.GetPhotosUnder(path).Where(photo => !photo.MarkedDelete)
+                .OrderBy(photo => photo.DateTaken ?? "9999")
+                .ThenBy(photo => photo.Path, StringComparer.CurrentCultureIgnoreCase).ToList();
+            var cover = photos.FirstOrDefault(photo => File.Exists(lib.Resolve(photo.Path)));
+            var to = photos.LastOrDefault(photo => photo.DateTaken is not null)?.DateTaken;
+            result.Add(new ReadingAlbumSummaryDto(path, Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar)),
+                intros.GetValueOrDefault(path) ?? "", photos.Count, cover?.Path, cover?.Rotation ?? 0, photos.FirstOrDefault()?.DateTaken, to));
         }
         return result;
-
-        void Collect(FolderNode n)
-        {
-            if (FolderKind.Normalize(kinds.GetValueOrDefault(n.Path)) == FolderKind.Vacation) vacations.Add(n);
-            foreach (var c in n.Children) Collect(c);
-        }
     }
 
-    /// <summary>Otevře album ke čtení: fotky složky, pak fotky podsložek (při prvním otevření se načtou ze souborů).</summary>
-    public ReadingAlbumDto GetReadingAlbum(string folder, CancellationToken ct)
+    /// <summary>Otevře album z dostupného katalogu a seznamu souborů. Metadata doplňuje indexer.</summary>
+    public ReadingAlbumDto GetReadingAlbum(string folder, CancellationToken ct, bool quick = false)
     {
         var lib = Library;
-        var dir = lib.Resolve(folder);
-        if (!Directory.Exists(dir)) throw new DirectoryNotFoundException("Složka neexistuje.");
-        var rel = lib.ToRelative(dir);
-        var node = FindNode(lib.ScanTree(), rel) ?? new FolderNode(rel, Path.GetFileName(dir));
+        if (!Directory.Exists(lib.Resolve(folder))) throw new DirectoryNotFoundException("Složka neexistuje.");
+        var node = lib.ScanTree(folder, ct);
+        var records = quick ? Db.GetPhotos(node.AllPhotoPaths()) : null;
         var photos = new List<ReadingPhotoDto>();
         Add(node);
-        var name = rel.Length == 0 ? Path.GetFileName(lib.Root.TrimEnd(Path.DirectorySeparatorChar)) : node.Name;
-        return new ReadingAlbumDto(rel, name, Db.GetAlbumIntros().GetValueOrDefault(rel) ?? "", photos);
+        return new ReadingAlbumDto(node.Path, node.Name, Db.GetAlbumIntros().GetValueOrDefault(node.Path) ?? "", photos);
 
         void Add(FolderNode n)
         {
             ct.ThrowIfCancellationRequested();
             if (n.PhotoPaths.Count > 0)
-                photos.AddRange(OpenFolder(n.Path).Photos.Where(p => p.Status != "del")
-                    .Select(p => new ReadingPhotoDto(p.Path, p.Name, p.Date, p.Title, p.IsDraft ? "" : p.Caption, p.Rotation)));
-            foreach (var c in n.Children) Add(c);
-        }
-
-        static FolderNode? FindNode(FolderNode n, string path)
-        {
-            if (string.Equals(n.Path, path, StringComparison.OrdinalIgnoreCase)) return n;
-            foreach (var c in n.Children) if (FindNode(c, path) is { } f) return f;
-            return null;
+            {
+                var own = records is null ? OpenFolder(n.Path, ct: ct).Photos
+                    : n.PhotoPaths.Select(path => ToDto(path, records.GetValueOrDefault(path), FolderKind.Everyday))
+                        .OrderBy(photo => photo.Date ?? "9999")
+                        .ThenBy(photo => photo.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+                photos.AddRange(own.Where(photo => photo.Status != "del").Select(photo => new ReadingPhotoDto(photo.Path, photo.Name, photo.Date, photo.Title,
+                    photo.IsDraft ? "" : photo.Caption, photo.Rotation)));
+            }
+            foreach (var child in n.Children) Add(child);
         }
     }
 
