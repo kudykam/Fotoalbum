@@ -5,7 +5,7 @@
 Aplikace pro Windows na popisování fotografií z cest. Popisky se ukládají přímo do metadat JPG
 (XMP `dc:description`, IPTC `Caption-Abstract`, EXIF `ImageDescription`), takže je uvidí i jiné programy.
 
-Zadání: [docs/SPECIFIKACE.md](docs/SPECIFIKACE.md) · maketa: [docs/maketa/fotoalbum-maketa.html](docs/maketa/fotoalbum-maketa.html)
+Zadání: [docs/SPECIFIKACE.md](docs/SPECIFIKACE.md) · **stav práce a rozdělané úkoly: [docs/STAV-PRACE.md](docs/STAV-PRACE.md)** · maketa: [docs/maketa/fotoalbum-maketa.html](docs/maketa/fotoalbum-maketa.html)
 
 ## ⚠️ Veřejný repozitář
 
